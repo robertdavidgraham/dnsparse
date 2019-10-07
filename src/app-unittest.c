@@ -3,10 +3,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <execinfo.h>
 #include <signal.h>
-#include <sys/mman.h>
+
+#ifndef WIN32
+#include <execinfo.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#endif
 
 const char *g_name;
 int g_line_number;
@@ -25,6 +28,7 @@ size_t g_count;
 static void *
 _mmap_allocate(size_t size)
 {
+#if defined(PROT_READ)
 #if defined(MAP_ANONYMOUS)
     return mmap(
         NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -41,6 +45,9 @@ _mmap_allocate(size_t size)
     close(fd);
     return p;
 #endif
+#else
+    return malloc(size);
+#endif
 }
 
 /**
@@ -56,7 +63,11 @@ _mmap_free(void *old_mem, size_t old_size)
     
     /* attempt to mark the pages from the operating system to
      * cause a crash */
+#if defined(PROT_NONE)
     mprotect(old_mem, old_size, PROT_NONE);
+#else
+    free(old_mem);
+#endif
 }
 
 /**
@@ -721,7 +732,7 @@ static int _test_error(int rtype, const char *rdata, size_t rdlength, int line_n
 
 
 
-#ifdef SIGSEGV
+#ifndef WIN32
 /**
  * Traps SIGSEGV in order to print out a crash backtrace, so that we can
  * get additional information in the field about what happened.
@@ -787,7 +798,7 @@ int main(void)
     /* On Linux/macOS, we install a signal handler that will tell us on
      * which line of code the unitest fails, so that we can diagnose problems
      * in the field without having to run the debugger. */
-#ifdef SIGSEGV
+#ifndef WIN32
     signal(SIGSEGV, _crash_handler);
 #endif
     

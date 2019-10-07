@@ -1109,7 +1109,8 @@ _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsi
     size_t nameserver_count;
     size_t additional_count;
     size_t total_record_count;
-    
+    struct dnsrrdata_t *records;
+
     /* skip xid and flags field, as those were parsed in pass#0 */
     _next_uint16(&packet);
     _next_uint16(&packet);
@@ -1128,7 +1129,7 @@ _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsi
 
     /* Allocate all the records as a single array, then subdivide
      * that array for each section. */
-    struct dnsrrdata_t *records =_calloc(dns, total_record_count, sizeof(records[0]));
+    records =_calloc(dns, total_record_count, sizeof(records[0]));
     if ((*dns)->mem.is_postalloc) {
         (*dns)->query_count = query_count;
         (*dns)->queries = &records[0];
@@ -1327,6 +1328,20 @@ dns_parse_free(struct dns_t *dns)
 
 int dns_quicktest(void)
 {
+    static const unsigned char packet00[] =
+    "\x12\x34"
+    "\x81\x80"
+    "\x00\x01" /* one query */
+    "\x00\x01" /* one response */
+    "\x00\x00" /* zero ns records */
+    "\x00\x00" /* zero addition records */
+    "\x03" "www" "\x07" "example" "\x03" "com" "\x00"
+    "\x00\x01\x00\x01" /* class=IN type=A */
+    "\xc0\x0c" /* compressed name back to start */
+    "\x00\x01\x00\x01" /* type=A class=IN*/
+    "\x41\x42\x43\x44" /* TTL */
+    "\x00\x04" /* four bytes */
+    "\x0a\x01\x02\x03";
     int is_error;
     
     
@@ -1349,26 +1364,22 @@ int dns_quicktest(void)
         return 1;
 
     
-    static const unsigned char packet00[] =
-    "\x12\x34"
-    "\x81\x80"
-    "\x00\x01" /* one query */
-    "\x00\x01" /* one response */
-    "\x00\x00" /* zero ns records */
-    "\x00\x00" /* zero addition records */
-    "\x03" "www" "\x07" "example" "\x03" "com" "\x00"
-    "\x00\x01\x00\x01" /* class=IN type=A */
-    "\xc0\x0c" /* compressed name back to start */
-    "\x00\x01\x00\x01" /* type=A class=IN*/
-    "\x41\x42\x43\x44" /* TTL */
-    "\x00\x04" /* four bytes */
-    "\x0a\x01\x02\x03";
     
     /* Test a GOOD result, that the module is working as intended to produce
      * an expected result. */
-    struct dns_t *dns = dns_parse(packet00, sizeof(packet00)-1, 0, 0);
-    if (dns == NULL || dns->error_code != 0) {
-        return 1;
+    {
+        struct dns_t *dns;
+        
+        dns = dns_parse(packet00, sizeof(packet00)-1, 0, 0);
+        if (dns == NULL || dns->error_code != 0) {
+            return 1;
+        }
+
+        /* Now do the same thing, but this time re-using the buffer */
+        dns = dns_parse(packet00, sizeof(packet00)-1, 0, 0);
+        if (dns == NULL || dns->error_code != 0) {
+            return 1;
+        }
     }
     
     
