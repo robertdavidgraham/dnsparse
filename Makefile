@@ -22,7 +22,7 @@ bin/unittest: tmp/dns-parse.o tmp/dns-format.o tmp/app-unittest.o
 bin/digpcap: tmp/dns-parse.o tmp/dns-format.o tmp/app-digpcap.o tmp/util-threads.o \
 	tmp/util-hashmap.o tmp/util-packet.o tmp/util-pcapfile.o
 	@echo $@
-	@$(CC) $(CFLAGS) $^  -o $@
+	@$(CC) $(CFLAGS) $^ -lpthread -o $@
 
 	
 
