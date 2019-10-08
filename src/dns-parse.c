@@ -1111,8 +1111,11 @@ _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsi
     size_t total_record_count;
     struct dnsrrdata_t *records;
 
+    /* FIXME: don't use this parameter yet, but I will */
+    (void)options;
+    
     /* skip xid and flags field, as those were parsed in pass#0 */
-    _next_uint16(&packet);
+    (*dns)->flags.xid = _next_uint16(&packet);
     _next_uint16(&packet);
     
     /* grab the number of records in each section */
@@ -1280,7 +1283,7 @@ dns_parse(const unsigned char *buf, size_t length, unsigned options, struct dns_
      * Parse all the resource-records to discover the amount of memory
      * that we need to allocate for them.
      */
-    memset(pass1, 0, sizeof(*pass1));
+    //memset(pass1, 0, sizeof(*pass1));
     pass1->mem.is_prealloc = 1;
     pass1->_current_size = sizeof(*pass1);
     pass1->_max_size = sizeof(*pass1);

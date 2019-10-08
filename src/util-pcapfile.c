@@ -623,7 +623,7 @@ pcapfile_openappend(const char *capfilename, int linktype)
 	struct stat s;
 	unsigned char buf[24];
 	unsigned byte_order;
-	unsigned file_linktype;
+	int file_linktype;
 	FILE *fp;
 
 

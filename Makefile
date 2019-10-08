@@ -3,25 +3,33 @@ CFLAGS = -g -ggdb -Wall -Wpedantic -Wextra \
 	-D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE \
 	-Wformat -Wformat-security 
 
-TARGETS = bin/unittest bin/mydig
+TARGETS = bin/unittest bin/mydig bin/digpcap
 
 all: $(TARGETS)
 
-tmp/%.o: src/%.c 
-	$(CC) -c -o $@ $< $(CFLAGS)
+tmp/%.o: src/%.c
+	@echo cc -c -o $0 $<
+	@$(CC) -c -o $@ $< $(CFLAGS)
 
 bin/mydig: tmp/dns-parse.o tmp/dns-format.o tmp/app-dig.o
 	@echo $@
-	$(CC) $(CFLAGS) $^  -o $@ -lresolv
+	@$(CC) $(CFLAGS) $^  -o $@ -lresolv
 
 bin/unittest: tmp/dns-parse.o tmp/dns-format.o tmp/app-unittest.o
 	@echo $@
-	$(CC) $(CFLAGS) $^  -o $@
+	@$(CC) $(CFLAGS) $^  -o $@
+
+bin/digpcap: tmp/dns-parse.o tmp/dns-format.o tmp/app-digpcap.o tmp/util-threads.o \
+	tmp/util-hashmap.o tmp/util-packet.o tmp/util-pcapfile.o
+	@echo $@
+	@$(CC) $(CFLAGS) $^  -o $@
 
 	
 
-clean: 
-	rm $(TARGETS)
-	rm tmp/*
+clean:
+	@echo rm $(TARGETS)
+	@echo rm tmp/*.o
+	@rm -f $(TARGETS) 2>/dev/null || true
+	@rm -f tmp/*.o 2>/dev/null || true
 
 

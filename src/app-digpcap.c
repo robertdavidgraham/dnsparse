@@ -34,7 +34,7 @@ struct dns_t *_process_dns(const unsigned char *buf, size_t length, struct dns_t
             continue;
 
         /* Print in DIG format (i.e. zonefile format) */
-        printf("%s%-23s %u\tIN\t%-7s %s\n",
+        printf("%s%-23s %-7u IN\t%-7s %s\n",
             (rr->section == 0) ? ";" : "",
              rr->name,
              rr->ttl,
@@ -96,6 +96,7 @@ void _process_file(const char *filename)
         
         if (decode.ip_protocol == 6 && decode.port_src == 53) {
             /* FIXME: add TCP stream processing here */
+            ;
         }
     }
     

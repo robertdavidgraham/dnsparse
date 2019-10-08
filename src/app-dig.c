@@ -12,6 +12,60 @@
 #include <resolv.h>
 #include <netdb.h>
 
+struct dig_options {
+    unsigned rtype;
+    char *filename;
+    unsigned is_short:1;
+    char **hostnames;
+    size_t hostname_count;
+};
+
+/**
+ * Return the name of the opcode, so that we can print it
+ * @param opcode
+ *      One of the opcodes defined in RFCs, such as 0 for QUERY.
+ * @return the name corresponding to the value
+ */
+const char *
+_opcode_name(unsigned opcode)
+{
+    static char buf[64];
+    switch (opcode) {
+        case 0: return "QUERY"; /* it's always this */
+        case 1: return "IQUERY";
+        case 2: return "STATUS";
+        case 4: return "NOTIFY";
+        case 5: return "UPDATE";
+        default:
+            snprintf(buf, sizeof(buf), "%u", opcode);
+            return buf;
+    }
+}
+
+/**
+ * Return the name of the response-code, so that we can print it
+ * @param rcode
+ *      One of the response codes defined in RFCs, such as 0 for NOERROR.
+ *      This can be an extended rcode from EDNS0.
+ * @return the name corresponding to the value
+ */
+const char *
+_rcode_name(unsigned rcode)
+{
+    static char buf[64];
+    switch (rcode) {
+        case 0: return "NOERROR";
+        case 1: return "FORMERR";
+        case 2: return "SERVFAIL";
+        case 3: return "NXDOMAIN";
+        case 4: return "NOTIMP";
+        case 5: return "REFUSED";
+        default:
+            snprintf(buf, sizeof(buf), "%u", rcode);
+            return buf;
+    }
+}
+
 /**
  * Decode the DNS response, and print it out to the command in
  * the 'presentation' format (the format servers use to read in
@@ -19,22 +73,54 @@
  * program.
  */
 static int
-decode_result(const unsigned char *buf, size_t length)
+_print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds)
 {
     static const size_t sizeof_output = 1024 * 1024;
     char *output = malloc(sizeof_output);
-    struct dns_t *dns = NULL;
     int err;
     size_t i;
+    int is_printed_header;
     
-    /* Decode the response */
-    dns = dns_parse(buf, length, 0, 0);
-    if (dns == NULL || dns->error_code != 0)
-        goto fail;
+    printf(";; Got answer:\n");
 
+    /* Print the DIG-style header information */
+    printf(";; ->>HEADER<<- opcode: %s, status: %s, id: %u\n",
+           _opcode_name(dns->flags.opcode),
+           _rcode_name(dns->flags.rcode),
+           dns->flags.xid);
+    /*
+     15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+    |QR|   Opcode  |AA|TC|RD|RA| Z|AD|CD|   Rcode   |
+    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+      0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+    */
+    printf(";; flags:%s%s%s%s%s%s%s%s; QUERY: %u, ANSWER: %u, AUTHORITY: %u, ADDITIONAL: %u\n\n",
+           dns->flags.is_response?" qr":"",
+           dns->flags.is_authoritative?" aa":"",
+           dns->flags.is_truncated?" tc":"",
+           dns->flags.is_recursion_desired?" rd":"",
+           dns->flags.is_recursion_available?" ra":"",
+           dns->flags.is_Z?" z":"",
+           dns->flags.is_authentic?" ad":"",
+           dns->flags.is_checking_disabled?" cd":"",
+           (unsigned)dns->query_count,
+           (unsigned)dns->answer_count,
+           (unsigned)dns->nameserver_count,
+           (unsigned)dns->additional_count
+           );
+
+    /* If EDNS0, print that information */
+    if (dns->flags.edns0.offset) {
+        printf(";; OPT PSEUDOSECTION:\n");
+        printf("; EDNS: version: %u, flags:; udp: %u\n",
+               dns->flags.edns0.version,
+               dns->flags.edns0.udp_payload_size);
+    }
+    
     /* QUESTION */
     if (dns->query_count)
-        printf("\n;; QUESTION SECTION:\n");
+        printf(";; QUESTION SECTION:\n");
     for (i=0; i<dns->query_count; i++) {
         dnsrrdata_t *rr = &dns->queries[i];
 
@@ -79,14 +165,15 @@ decode_result(const unsigned char *buf, size_t length)
     }
 
     /* ADDITIONAL */
-    if (dns->additional_count)
-        printf("\n;; ADITIONAL SECTION:\n");
+    is_printed_header = 0;
     for (i=0; i<dns->additional_count; i++) {
         dnsrrdata_t *rr = &dns->additional[i];
         if (rr->rclass != 1)
             continue;
         if (rr->rtype == 41)
             continue; /* skip EDNS0 */
+        if (is_printed_header++ == 0)
+            printf("\n;; ADITIONAL SECTION:\n");
         err = dns_format_rdata(rr, output, sizeof_output);
         printf("%-23s %u\t%s\t%-7s %s\n",
                 rr->name,
@@ -96,68 +183,130 @@ decode_result(const unsigned char *buf, size_t length)
                 output);
     }
 
-
-
     printf("\n");
     return 0;
-    
-fail:
-    fprintf(stderr, "[-] selftest failed\n");
-    return 1;
+}
+
+
+/**
+ * Add a hostname to the list that we'll be looking up.
+ */
+static void
+_hostname_add(struct dig_options *options, const char *hostname)
+{
+    options->hostnames = realloc(options->hostnames, sizeof(hostname) * (options->hostname_count + 1));
+    options->hostnames[options->hostname_count] = strdup(hostname);
+    options->hostname_count++;
 }
 
 static void
-_parse_commandline(int argc, char *argv[], int *type, char **hostname)
+_hostnames_free(struct dig_options *options)
 {
-    if (argc < 2) {
-        fprintf(stderr, "usage:\n test-resolv <name>\n");
-        exit(1);
-    } else {
-        int i;
-        for (i=1; i<argc; i++) {
-            int t = dns_rrtype_from_name(argv[i]);
-            if (t == -1) {
-                *hostname = argv[i];
-            } else {
-                *type = t;
+    size_t i;
+    for (i=0; i<options->hostname_count; i++)
+        free(options->hostnames[i]);
+    free(options->hostnames);
+}
+
+/**
+ * Parse the command-line arguments into flags for this program.
+ * @param argc
+ *      The same parameter as in main(), the total number of command-line parameters
+ * @param argv
+ *      The same as in main(), the list of command-line parameters, starting
+ *      with the name of the program.
+ * @return a structure containing parsed arguments
+ */
+static struct dig_options
+_parse_commandline(int argc, char *argv[])
+{
+    struct dig_options options = {0};
+    int i;
+    for (i=1; i<argc; i++) {
+        if (argv[i][0] == '-') {
+        } else if (dns_rrtype_from_name(argv[i]) != -1) {
+            if (options.rtype) {
+                fprintf(stderr, "[-] only one record type can be specified\n");
+                fprintf(stderr, "[-] the value '%s' was already specified\n", dns_name_from_rrtype(options.rtype));
+                fprintf(stderr, "[-] the second value '%s' is rejected\n", argv[i]);
+                exit(1);
             }
+            options.rtype = dns_rrtype_from_name(argv[i]);
+        } else {
+            _hostname_add(&options, argv[i]);
         }
     }
-    if (*hostname == NULL) {
-        fprintf(stderr, "[-] no hostname specified\n");
-        exit(1);
-    }
-}
     
-int main(int argc, char *argv[])
+    return options;
+}
+
+static void
+_do_lookup(const struct dig_options *options, const char *hostname)
 {
     unsigned char buf[65536];
     int result;
-    char *hostname=NULL;
-    int type = 1;
+    struct dns_t *dns;
+    int rtype;
+    
+    /* If no rtype specified, default to 1 for "A" records */
+    if (options->rtype)
+        rtype = options->rtype;
+    else
+        rtype = 1;
 
-    /* Grab parameters from the command line */
-    _parse_commandline(argc, argv, &type, &hostname);
-    fprintf(stdout, "; <<>> NotDIG <<>> %s %s\n", dns_name_from_rrtype(type), hostname);
-
-    /* Initialize the built-in DNS resolver library */
-    res_init();
-#ifdef RES_USE_EDNSO
-    _res.options |= RES_USE_EDNSO;
-#endif
 
     /* Do the name resolution. This will block and take a long while */
     errno = 0;
-    result = res_search(hostname, 1, type, buf, sizeof(buf));
+    result = res_search(hostname, 1, rtype, buf, sizeof(buf));
     if (result < 0) {
         fprintf(stderr, "[-] res_search(): error: %s\n", hstrerror(h_errno));
-        return 1;
+        return;
     }
-    fprintf(stderr, "[+] res_search(): %d bytes\n", result);
+
+    /* Parse the DNS response */
+    dns = dns_parse(buf, result, 0, 0);
+    if (dns == NULL || dns->error_code != 0) {
+        printf(";; failed to parse result\n");
+        dns_parse_free(dns);
+        return;
+    }
+
 
     /* Now decode the result */
-    decode_result(buf, result);
+    _print_long_results(dns, 60);
 
+    dns_parse_free(dns);
+}
+
+int main(int argc, char *argv[])
+{
+    struct dig_options options;
+    size_t i;
+
+    /* Initialize the built-in DNS resolver library */
+    res_init();
+    _res.options |= RES_USE_EDNS0;
+    _res.options |= RES_USE_DNSSEC;
+
+    /* Grab parameters from the command line */
+    options = _parse_commandline(argc, argv);
+    
+    /* If long-mode, print program info */
+    if (!options.is_short) {
+        printf("\n; <<>> DiG ..not! <<>> %s", options.rtype?dns_name_from_rrtype(options.rtype):"");
+        for (i=0; i<options.hostname_count; i++) {
+            printf(" %s", options.hostnames[i]);
+        }
+        printf("\n");
+        printf(";; global options: +cmd\n");
+    }
+    
+    /* Do all the hostnames */
+    for (i=0; i<options.hostname_count; i++) {
+        _do_lookup(&options, options.hostnames[i]);
+    }
+    
+    _hostnames_free(&options);
     return 0;
 }
 

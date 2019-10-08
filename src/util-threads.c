@@ -32,7 +32,13 @@
 #ifndef __ANDROID__
 pid_t gettid() {
 #if defined(__APPLE__)
-  return syscall(SYS_thread_selfid);
+    #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_12
+    uint64_t tid64;
+    pthread_threadid_np(NULL, &tid64);
+    return (pid_t)tid64;
+    #else
+    return syscall(SYS_thread_selfid);
+    #endif
 #elif defined(__linux__)
   return syscall(__NR_gettid);
 #elif defined(_WIN32)
