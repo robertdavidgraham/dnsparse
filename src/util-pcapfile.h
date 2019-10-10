@@ -45,7 +45,8 @@ enum {
  * supplied to pcapfile_readframe(). In addition, the linktype is returned
  * that tells how to start parsing the first bytes of a frame.
  */
-struct pcapfile_ctx_t *pcapfile_openread(const char *filename, int *linktype);
+struct pcapfile_ctx_t *
+pcapfile_openread(const char *filename, int *linktype, unsigned *secs, unsigned *usecs);
 
 /**
  * Writes a packet to a file created with pcapfile_openwrite().

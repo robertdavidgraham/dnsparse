@@ -447,7 +447,7 @@ int pcapfile_readframe(
 /**
  * Open a capture file for reading.
  */
-struct pcapfile_ctx_t *pcapfile_openread(const char *capfilename, int *out_linktype)
+struct pcapfile_ctx_t *pcapfile_openread(const char *capfilename, int *out_linktype, unsigned *secs, unsigned *usecs)
 {
 	FILE *fp;
 	ptrdiff_t bytes_read;
@@ -455,6 +455,7 @@ struct pcapfile_ctx_t *pcapfile_openread(const char *capfilename, int *out_linkt
 	unsigned byte_order;
 	unsigned linktype;
 	uint64_t file_size = 0xFFFFffff;
+    struct pcapfile_ctx_t *capfile = 0;
 
 	if (capfilename == NULL)
 		return NULL;
@@ -539,25 +540,44 @@ struct pcapfile_ctx_t *pcapfile_openread(const char *capfilename, int *out_linkt
 	 * allocate a structure that contains this information
 	 * and return that structure.
 	 */
-	{
-		struct pcapfile_ctx_t *capfile = 0;
-		capfile = (struct pcapfile_ctx_t*)malloc(sizeof(*capfile));
-		memset(capfile,0,sizeof(*capfile));
-		capfile->byte_order = byte_order;
+    capfile = (struct pcapfile_ctx_t*)malloc(sizeof(*capfile));
+    memset(capfile,0,sizeof(*capfile));
+    capfile->byte_order = byte_order;
 
-		if (strlen(capfilename) > sizeof(capfile->filename)+1)
-			capfile->filename[0] = '\0';
-		else {
-			memcpy(capfile->filename, capfilename, strlen(capfilename));
-			capfile->filename[strlen(capfilename)] = '\0';
-		}
-		capfile->fp = fp;
-		capfile->byte_order = byte_order;
-		capfile->linktype = linktype;
-		capfile->file_size = file_size;
-		capfile->bytes_read = 24; /*from the header*/
-		return capfile;
+    if (strlen(capfilename) > sizeof(capfile->filename)+1)
+        capfile->filename[0] = '\0';
+    else {
+        memcpy(capfile->filename, capfilename, strlen(capfilename));
+        capfile->filename[strlen(capfilename)] = '\0';
+    }
+    capfile->fp = fp;
+    capfile->byte_order = byte_order;
+    capfile->linktype = linktype;
+    capfile->file_size = file_size;
+    capfile->bytes_read = 24; /*from the header*/
+  
+    if (secs || usecs) {
+        int err;
+        unsigned time_secs = 0;
+        unsigned time_usecs = 0;
+        unsigned original_length = 0;
+        unsigned captured_length = 0;
+        unsigned char buf[2048];
+        
+        err = pcapfile_readframe(capfile, &time_secs, &time_usecs, &original_length, &captured_length, buf, sizeof(buf));
+        if (err) {
+            pcapfile_close(capfile);
+            return NULL;
+        }
+        if (secs)
+            *secs = time_secs;
+        if (usecs)
+            *usecs = time_usecs;
+        
+        fseek(fp, 24, SEEK_SET);
+        capfile->bytes_read = 24;
 	}
+    return capfile;
 }
 
 

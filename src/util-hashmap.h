@@ -23,6 +23,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /** A hash map. */
 typedef struct Hashmap Hashmap;
 /**
@@ -33,7 +34,7 @@ typedef struct Hashmap Hashmap;
  * @param equals function which compares keys for equality
  */
 Hashmap* hashmapCreate(size_t initialCapacity,
-        int (*hash)(void* key), bool (*equals)(void* keyA, void* keyB));
+        uint64_t (*hash)(void* key), bool (*equals)(void* keyA, void* keyB));
 /**
  * Frees the hash map. Does not free the keys or values themselves.
  */

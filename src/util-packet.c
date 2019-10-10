@@ -196,7 +196,8 @@ parse_dns:
 parse_ipv6:
     {
         unsigned payload_length;
-
+        
+        info->ip_offset = offset;
         VERIFY_REMAINING(40, FOUND_IPV6);
 
         /* Check version */
@@ -205,6 +206,7 @@ parse_ipv6:
 
         /* Payload length */
         payload_length = ex16be(px+offset+4);
+        info->ip_length = 40 + payload_length;
         VERIFY_REMAINING(40+payload_length, FOUND_IPV6);
         if (length > offset + 40 + payload_length)
             length = offset + 40 + payload_length;

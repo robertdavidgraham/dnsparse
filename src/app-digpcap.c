@@ -1,9 +1,12 @@
 #include "util-pcapfile.h"
 #include "util-packet.h"
+#include "util-tcpreasm.h"
 #include "dns-parse.h"
 #include "dns-format.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <string.h>
 
 
 struct dns_t *_process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
@@ -44,6 +47,15 @@ struct dns_t *_process_dns(const unsigned char *buf, size_t length, struct dns_t
     return dns;
 }
 
+/**
+ * On TCP, DNS request/responses are prefixed by a two-byte length field
+ */
+struct dnstcp
+{
+    int state;
+    unsigned short pdu_length;
+};
+
 void _process_file(const char *filename)
 {
     struct pcapfile_ctx_t *ctx;
@@ -52,6 +64,9 @@ void _process_file(const char *filename)
     unsigned sizeof_buf = 128 * 1024;
     struct dns_t *recycle = NULL;
     size_t frame_number = 0;
+    struct tcpreasm_ctx_t *tcpreasm = 0;
+    unsigned secs;
+    unsigned usecs;
     
     /* Allocate a large buffer */
     buf = malloc(sizeof_buf);
@@ -60,12 +75,21 @@ void _process_file(const char *filename)
         exit(1);
     }
     
-    ctx = pcapfile_openread(filename, &linktype);
+    ctx = pcapfile_openread(filename, &linktype, &secs, &usecs);
     if (ctx == NULL) {
         fprintf(stderr, "[-] error: %s\n", filename);
         return;
+    } else {
+        time_t now = secs;
+        struct tm *tm = gmtime(&now);
+        char timestamp[64];
+        strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm);
+        fprintf(stderr, "[+] %s (%s) %s \n", filename, pcapfile_datalink_name(linktype), timestamp);
     }
-    fprintf(stderr, "[+] %s (%s)\n", filename, pcapfile_datalink_name(linktype));
+    
+    /* Create a subsystme for reassembling TCP streams */
+    tcpreasm = tcpreasm_create(sizeof(struct dnstcp), 0, secs, usecs);
+
     
     /*
      * Process all the packets read from the file
@@ -89,12 +113,44 @@ void _process_file(const char *filename)
         if (err)
             continue;
         
-        /* Make sure this a UDP */
-        if (decode.ip_protocol == 17 && decode.port_src == 53) {
+        /* If not DNS, then ignore this packet */
+        if (decode.port_src != 53)
+            continue;
+        
+        /* If UDP, then decode this payload*/
+        if (decode.ip_protocol == 17) {
             recycle = _process_dns(buf + decode.app_offset, decode.app_length, recycle);
         }
         
-        if (decode.ip_protocol == 6 && decode.port_src == 53) {
+        /* If TCP, then reassemble the stream into a packet */
+        if (decode.ip_protocol == 6) {
+            struct tcpreasm_handle_t ins;
+            
+            ins = tcpreasm_insert_packet(tcpreasm, buf + decode.ip_offset, decode.ip_length, time_secs, time_usecs);
+            if (ins.available) {
+                struct dnstcp *d = (struct dnstcp *)ins.userdata;
+                if (d->state == 0) {
+                    if (ins.available >= 2) {
+                        unsigned char foo[2];
+                        size_t count;
+                        d->state = 1;
+                        count = tcpreasm_read(&ins, foo, 2);
+                        d->pdu_length = foo[0]<<8 | foo[1];
+                    }
+                }
+                if (d->state == 1) {
+                    if (d->pdu_length <= ins.available) {
+                        unsigned char tmp[65536];
+                        size_t count;
+                        count = tcpreasm_read(&ins, tmp, d->pdu_length);
+                        if (count == d->pdu_length) {
+                            recycle = _process_dns(tmp, count, recycle);
+                            d->state = 0;
+                        }
+                    }
+                }
+
+            }
             /* FIXME: add TCP stream processing here */
             ;
         }
