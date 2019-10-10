@@ -96,10 +96,11 @@ _evil_allocator(void *old_mem, size_t new_size, void *arena)
 
     if (new_size == 0) {
         /* The caller wants to free existing memory. */
-        if (old_mem && old_size )
+        if (old_mem && old_size ) {
             _mmap_free(old_mem, old_size);
-        else
+        } else {
             ; /* The caller wants to do nothing */
+        }
         return NULL;
     }
     

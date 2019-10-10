@@ -73,11 +73,10 @@ _rcode_name(unsigned rcode)
  * program.
  */
 static int
-_print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds)
+_print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds, size_t length)
 {
     static const size_t sizeof_output = 1024 * 1024;
     char *output = malloc(sizeof_output);
-    int err;
     size_t i;
     int is_printed_header;
     
@@ -138,7 +137,7 @@ _print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds)
         dnsrrdata_t *rr = &dns->answers[i];
         if (rr->rclass != 1)
             continue;
-        err = dns_format_rdata(rr, output, sizeof_output);
+        dns_format_rdata(rr, output, sizeof_output);
         printf("%-23s %u\t%s\t%-7s %s\n",
                 rr->name,
                 rr->ttl,
@@ -155,7 +154,7 @@ _print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds)
         dnsrrdata_t *rr = &dns->nameservers[i];
         if (rr->rclass != 1)
             continue;
-        err = dns_format_rdata(rr, output, sizeof_output);
+        dns_format_rdata(rr, output, sizeof_output);
         printf("%-23s %u\t%s\t%-7s %s\n",
             rr->name,
             rr->ttl,
@@ -174,7 +173,7 @@ _print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds)
             continue; /* skip EDNS0 */
         if (is_printed_header++ == 0)
             printf("\n;; ADITIONAL SECTION:\n");
-        err = dns_format_rdata(rr, output, sizeof_output);
+        dns_format_rdata(rr, output, sizeof_output);
         printf("%-23s %u\t%s\t%-7s %s\n",
                 rr->name,
                 rr->ttl,
@@ -184,6 +183,8 @@ _print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds)
     }
 
     printf("\n");
+    printf(";; Query time: %u msec\n", ellapsed_milliseconds);
+    printf(";; MSG SIZE  recvd: %u\n", (unsigned)length);
     return 0;
 }
 
@@ -273,7 +274,7 @@ _do_lookup(const struct dig_options *options, const char *hostname)
 
 
     /* Now decode the result */
-    _print_long_results(dns, 60);
+    _print_long_results(dns, 60, result);
 
     dns_parse_free(dns);
 }

@@ -7,7 +7,7 @@
  */
 #include "dns-parse.h"
 #include <assert.h>
-#define __STDC_WANT_LIB_EXT1__ 1
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
