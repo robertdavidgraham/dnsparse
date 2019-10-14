@@ -794,8 +794,8 @@ int main(void)
      * all the += with |= and the logic would still work. */
     int err_count = 0;
 
-    err_count += REALWORLD(packet02, "g.geogslb.com.", CNAME, "ib.anycast.adnxs.com.");
-
+    err_count += REALWORLD(packet05, "www.google.com.", A, "216.58.215.228");
+    
     /* On Linux/macOS, we install a signal handler that will tell us on
      * which line of code the unitest fails, so that we can diagnose problems
      * in the field without having to run the debugger. */

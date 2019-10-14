@@ -9,7 +9,11 @@
 #include <string.h>
 
 
-struct dns_t *_process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
+/**
+ * Handle a TCP packet, either UDP packet read from the stream, or a reassembled TCP payload.
+ */
+static struct dns_t *
+_process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
 {
     size_t i;
     int err;
@@ -56,25 +60,22 @@ struct dnstcp
     unsigned short pdu_length;
 };
 
-void _process_file(const char *filename)
+/**
+ * Read in the packet-capture file and process all the records.
+ */
+static void
+_process_file(const char *filename)
 {
     struct pcapfile_ctx_t *ctx;
     int linktype = 0;
-    unsigned char *buf;
-    unsigned sizeof_buf = 128 * 1024;
     struct dns_t *recycle = NULL;
     size_t frame_number = 0;
     struct tcpreasm_ctx_t *tcpreasm = 0;
-    unsigned secs;
-    unsigned usecs;
+    time_t secs;
+    long usecs;
     
-    /* Allocate a large buffer */
-    buf = malloc(sizeof_buf);
-    if (buf == NULL) {
-        fprintf(stderr, "[-] out-of-memory\n");
-        exit(1);
-    }
     
+    /* Open the packet capture file  */
     ctx = pcapfile_openread(filename, &linktype, &secs, &usecs);
     if (ctx == NULL) {
         fprintf(stderr, "[-] error: %s\n", filename);
@@ -87,23 +88,24 @@ void _process_file(const char *filename)
         fprintf(stderr, "[+] %s (%s) %s \n", filename, pcapfile_datalink_name(linktype), timestamp);
     }
     
-    /* Create a subsystme for reassembling TCP streams */
-    tcpreasm = tcpreasm_create(sizeof(struct dnstcp), 0, secs, usecs);
+    /* Create a subsystem for reassembling TCP streams */
+    tcpreasm = tcpreasm_create(sizeof(struct dnstcp), 0, secs, 60);
 
     
     /*
      * Process all the packets read from the file
      */
     for (;;) {
-        unsigned time_secs;
-        unsigned time_usecs;
-        unsigned original_length;
-        unsigned captured_length;
+        time_t time_secs;
+        long time_usecs;
+        size_t original_length;
+        size_t captured_length;
+        const unsigned char *buf;
         int err;
         struct packetdecode_t decode;
         
         /* Read the next packet */
-        err = pcapfile_readframe(ctx, &time_secs, &time_usecs, &original_length, &captured_length, buf, sizeof_buf);
+        err = pcapfile_readframe(ctx, &time_secs, &time_usecs, &original_length, &captured_length, &buf);
         if (err)
             break;
         frame_number++;
@@ -124,9 +126,13 @@ void _process_file(const char *filename)
         
         /* If TCP, then reassemble the stream into a packet */
         if (decode.ip_protocol == 6) {
-            struct tcpreasm_handle_t ins;
+            struct tcpreasm_tuple_t ins;
             
-            ins = tcpreasm_insert_packet(tcpreasm, buf + decode.ip_offset, decode.ip_length, time_secs, time_usecs);
+            ins = tcpreasm_packet(tcpreasm, /* reassembler */
+                                         buf + decode.ip_offset, /* IP+TCP+payload */
+                                         decode.ip_length,
+                                         time_secs,             /* timestamp */
+                                         time_usecs * 1000);
             if (ins.available) {
                 struct dnstcp *d = (struct dnstcp *)ins.userdata;
                 if (d->state == 0) {
@@ -151,8 +157,10 @@ void _process_file(const char *filename)
                 }
 
             }
-            /* FIXME: add TCP stream processing here */
-            ;
+
+            /* Process any needed timeouts */
+            tcpreasm_timeouts(tcpreasm, time_secs, time_usecs * 1000);
+            
         }
     }
     

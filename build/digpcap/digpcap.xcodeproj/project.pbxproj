@@ -9,12 +9,11 @@
 /* Begin PBXBuildFile section */
 		111949D8234E3F2D00AFB904 /* util-tcpreasm.c in Sources */ = {isa = PBXBuildFile; fileRef = 111949D6234E3F2C00AFB904 /* util-tcpreasm.c */; };
 		111949DB234E4D1900AFB904 /* siphash24.c in Sources */ = {isa = PBXBuildFile; fileRef = 111949DA234E4D1900AFB904 /* siphash24.c */; };
-		111949DE234FED7B00AFB904 /* util-timeut.c in Sources */ = {isa = PBXBuildFile; fileRef = 111949DC234FED7B00AFB904 /* util-timeut.c */; };
+		111949E12350FB0900AFB904 /* util-timeouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 111949E02350FB0900AFB904 /* util-timeouts.c */; };
 		114E5972234BC12300A78EA6 /* util-pcapfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E5970234BC12300A78EA6 /* util-pcapfile.c */; };
 		114E5974234BC2E000A78EA6 /* app-digpcap.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E5973234BC2E000A78EA6 /* app-digpcap.c */; };
 		114E5977234BD17000A78EA6 /* util-packet.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E5975234BD17000A78EA6 /* util-packet.c */; };
 		114E597A234BD6B400A78EA6 /* util-hashmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E5979234BD6B400A78EA6 /* util-hashmap.c */; };
-		114E597D234BD77900A78EA6 /* util-threads.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E597B234BD77900A78EA6 /* util-threads.c */; };
 		114E597F234BD7BF00A78EA6 /* dns-parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E597E234BD7BF00A78EA6 /* dns-parse.c */; };
 		114E5983234BD7CE00A78EA6 /* dns-format.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E5981234BD7CE00A78EA6 /* dns-format.c */; };
 /* End PBXBuildFile section */
@@ -36,8 +35,8 @@
 		111949D7234E3F2D00AFB904 /* util-tcpreasm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-tcpreasm.h"; path = "../../../src/util-tcpreasm.h"; sourceTree = "<group>"; };
 		111949D9234E4D1900AFB904 /* siphash24.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = siphash24.h; path = ../../../src/siphash24.h; sourceTree = "<group>"; };
 		111949DA234E4D1900AFB904 /* siphash24.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = siphash24.c; path = ../../../src/siphash24.c; sourceTree = "<group>"; };
-		111949DC234FED7B00AFB904 /* util-timeut.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-timeut.c"; path = "../../../src/util-timeut.c"; sourceTree = "<group>"; };
-		111949DD234FED7B00AFB904 /* util-timeout.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-timeout.h"; path = "../../../src/util-timeout.h"; sourceTree = "<group>"; };
+		111949DF2350FB0900AFB904 /* util-timeouts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-timeouts.h"; path = "../../../src/util-timeouts.h"; sourceTree = "<group>"; };
+		111949E02350FB0900AFB904 /* util-timeouts.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-timeouts.c"; path = "../../../src/util-timeouts.c"; sourceTree = "<group>"; };
 		114E5966234BC08000A78EA6 /* digpcap */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = digpcap; sourceTree = BUILT_PRODUCTS_DIR; };
 		114E5970234BC12300A78EA6 /* util-pcapfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-pcapfile.c"; path = "../../../src/util-pcapfile.c"; sourceTree = "<group>"; };
 		114E5971234BC12300A78EA6 /* util-pcapfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-pcapfile.h"; path = "../../../src/util-pcapfile.h"; sourceTree = "<group>"; };
@@ -46,8 +45,6 @@
 		114E5976234BD17000A78EA6 /* util-packet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-packet.h"; path = "../../../src/util-packet.h"; sourceTree = "<group>"; };
 		114E5978234BD6B400A78EA6 /* util-hashmap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-hashmap.h"; path = "../../../src/util-hashmap.h"; sourceTree = "<group>"; };
 		114E5979234BD6B400A78EA6 /* util-hashmap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-hashmap.c"; path = "../../../src/util-hashmap.c"; sourceTree = "<group>"; };
-		114E597B234BD77900A78EA6 /* util-threads.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-threads.c"; path = "../../../src/util-threads.c"; sourceTree = "<group>"; };
-		114E597C234BD77900A78EA6 /* util-threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-threads.h"; path = "../../../src/util-threads.h"; sourceTree = "<group>"; };
 		114E597E234BD7BF00A78EA6 /* dns-parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-parse.c"; path = "../../../src/dns-parse.c"; sourceTree = "<group>"; };
 		114E5980234BD7CE00A78EA6 /* dns-parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "dns-parse.h"; path = "../../../src/dns-parse.h"; sourceTree = "<group>"; };
 		114E5981234BD7CE00A78EA6 /* dns-format.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-format.c"; path = "../../../src/dns-format.c"; sourceTree = "<group>"; };
@@ -84,8 +81,8 @@
 		114E5968234BC08000A78EA6 /* digpcap */ = {
 			isa = PBXGroup;
 			children = (
-				111949DD234FED7B00AFB904 /* util-timeout.h */,
-				111949DC234FED7B00AFB904 /* util-timeut.c */,
+				111949E02350FB0900AFB904 /* util-timeouts.c */,
+				111949DF2350FB0900AFB904 /* util-timeouts.h */,
 				111949DA234E4D1900AFB904 /* siphash24.c */,
 				111949D9234E4D1900AFB904 /* siphash24.h */,
 				111949D6234E3F2C00AFB904 /* util-tcpreasm.c */,
@@ -94,8 +91,6 @@
 				114E5982234BD7CE00A78EA6 /* dns-format.h */,
 				114E5980234BD7CE00A78EA6 /* dns-parse.h */,
 				114E597E234BD7BF00A78EA6 /* dns-parse.c */,
-				114E597B234BD77900A78EA6 /* util-threads.c */,
-				114E597C234BD77900A78EA6 /* util-threads.h */,
 				114E5979234BD6B400A78EA6 /* util-hashmap.c */,
 				114E5978234BD6B400A78EA6 /* util-hashmap.h */,
 				114E5975234BD17000A78EA6 /* util-packet.c */,
@@ -164,16 +159,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				114E597D234BD77900A78EA6 /* util-threads.c in Sources */,
 				114E597A234BD6B400A78EA6 /* util-hashmap.c in Sources */,
 				114E5974234BC2E000A78EA6 /* app-digpcap.c in Sources */,
 				114E5972234BC12300A78EA6 /* util-pcapfile.c in Sources */,
 				114E5977234BD17000A78EA6 /* util-packet.c in Sources */,
 				114E597F234BD7BF00A78EA6 /* dns-parse.c in Sources */,
 				114E5983234BD7CE00A78EA6 /* dns-format.c in Sources */,
+				111949E12350FB0900AFB904 /* util-timeouts.c in Sources */,
 				111949DB234E4D1900AFB904 /* siphash24.c in Sources */,
 				111949D8234E3F2D00AFB904 /* util-tcpreasm.c in Sources */,
-				111949DE234FED7B00AFB904 /* util-timeut.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

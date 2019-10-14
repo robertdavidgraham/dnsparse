@@ -20,7 +20,8 @@ bin/unittest: tmp/dns-parse.o tmp/dns-format.o tmp/app-unittest.o
 	@$(CC) $(CFLAGS) $^  -o $@
 
 bin/digpcap: tmp/dns-parse.o tmp/dns-format.o tmp/app-digpcap.o tmp/util-threads.o \
-	tmp/util-hashmap.o tmp/util-packet.o tmp/util-pcapfile.o
+	tmp/util-hashmap.o tmp/util-packet.o tmp/util-pcapfile.o tmp/util-tcpreasm.o \
+	tmp/siphash24.o tmp/util-timeouts.o
 	@echo $@
 	@$(CC) $(CFLAGS) $^ -lpthread -o $@
 

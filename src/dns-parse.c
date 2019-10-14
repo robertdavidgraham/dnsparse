@@ -116,7 +116,7 @@ struct streamr_t {
  * Writes character onto the end of a buffer. Used to copy DNS names while checking
  * for buffer overflows.
  */
-static void
+static inline void
 _append_byte(struct streamw_t *s, unsigned char c)
 {
     if (s->offset < s->length)
@@ -352,7 +352,7 @@ _skip_rr(struct streamr_t *src, int is_query)
  * When the name is within the RDATA section, name compression
  * can point outside the RDATA field into the general packet.
  */
-static int
+static size_t
 _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char *name_buf, size_t name_length)
 {
     struct streamr_t src = *rdata;
@@ -361,13 +361,16 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
     int err;
     size_t count = 0;
     
+    if (name_buf == NULL || name_length == 0)
+        goto fail_programming;
+    
     /* We work from a copy of the [rdata] pointer below, but for output,
      * we skip the name. The reason is name compression. Here in the
      * [rdata] field, it may be only two bytes (often 0xc0 0x0c) of
      * compression, but later many more bytes located elsehwere */
     err = _skip_name(rdata);
     if (err)
-        return err;
+        goto fail_input;
     
     /* For each label... */
     for (;;) {
@@ -376,7 +379,7 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
         /* get the tag/length field */
         len = _next_uint8(&src);
         if (src.is_error)
-            return src.is_error;
+            goto fail;
         
         if (len == 0) {
             /* This is the last [label] in the [domainame]. A [FQDN] fully
@@ -393,7 +396,7 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
 
             count += 1 + len;
             if (count + 1 > 255)
-                return src.is_error = DNS_input_overflow;
+                goto fail_input;
 
             /* Copy over the bytes one byte one. Binary/special bytes need
              * to be escaped. */
@@ -402,7 +405,8 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
                 
                 c = _next_uint8(&src);
                 if (src.is_error)
-                    return DNS_input_overflow;
+                    goto fail;
+                
                 
                 /* While [hostnames] have restrictions to just alphanumeric and
                  * dot/dash, [domainnames] themselves can contain any binary data.
@@ -425,8 +429,8 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
             /* Get the second byte of the two-byte length field */
             len2 = _next_uint8(&src);
             if (src.is_error)
-                return DNS_input_overflow;
-
+                goto fail;
+            
             /* Reset which buffer we are looking at. We were looking at just
              * the RDATA field, now we need to expand this to look at the entire
              * DNS payload */
@@ -436,10 +440,10 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
             
             /* Peek ahead looking for recursion */
             if (src.offset + 1 > src.length)
-                return DNS_input_overflow;
+                goto fail_input_overflow;
             if ((src.buf[src.offset] & 0xC0) == 0xC0) {
                 if (++recursion_count > 4) {
-                    return DNS_input_bad;
+                    goto fail_input;
                 }
             }
         } else {
@@ -447,7 +451,7 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
              * where 0b00...... is the [length], and 0b11...... is the
              * [compression]. There was a spec for an [tag] with value
              * 0b10......, but that was deprecated.*/
-            return DNS_input_bad;
+            goto fail_input;
         }
     }
         
@@ -457,9 +461,32 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
     /* Test whether there was an internal buffer overflow. This is
      * due to a programming mistake, not bad input. */
     if (name.is_error)
-        return DNS_programming_error;
+        goto fail_programming;
 
-    return 0;
+    assert(name.offset > 1);
+    return name.offset - 1;
+    
+    fail:
+        name_buf[0] = '\0';
+        rdata->is_error = src.is_error;
+        return 0;
+        
+    fail_input_overflow:
+        name_buf[0] = '\0';
+        rdata->is_error = DNS_input_overflow;
+        return 0;
+        
+    fail_input:
+        name_buf[0] = '\0';
+        rdata->is_error = DNS_input_bad;
+        return 0;
+    
+    fail_programming:
+        if (name_buf && name_length)
+            name_buf[0] = '\0';
+        rdata->is_error = DNS_programming_error;
+        return 0;
+        
 }
 
 /**
@@ -495,21 +522,21 @@ _copy_domainname(struct streamr_t *src, struct streamr_t packet, const unsigned 
         *dst = NULL;
     
     /* First, copy the name into a temporary buffer */
-    err = _next_domainname(src, packet, tmpname, sizeof(tmpname));
-    if (err) {
-        src->is_error = err;
-        return err;
+    name_length = _next_domainname(src, packet, tmpname, sizeof(tmpname));
+    if (name_length == 0) {
+        if (src->is_error == 0)
+            src->is_error = DNS_programming_error;
+        return src->is_error;
     }
-    name_length = strlen((char*)tmpname) + 1;
         
     /* Now allocate a new buffer for the name and copy it over */
-    newname = _calloc(dns, 1, name_length);
+    newname = _calloc(dns, 1, name_length + 1);
     if (newname == NULL || *dns == NULL)
         return DNS_out_of_memory;
     
     /* Now assign the field */
     if ((*dns)->mem.is_postalloc) {
-        _memcpy_s(newname, name_length, tmpname, name_length);
+        _memcpy_s(newname, name_length + 1, tmpname, name_length + 1);
         *dst = newname;
     }
     

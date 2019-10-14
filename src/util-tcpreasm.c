@@ -1,6 +1,6 @@
 #include "util-tcpreasm.h"
 #include "util-hashmap.h"
-#include "util-timeout.h"
+#include "util-timeouts.h"
 #include "siphash24.h"
 #include <stdlib.h>
 #include <sys/time.h>
@@ -18,6 +18,7 @@ struct tcpreasm_ctx_t {
     Hashmap *conntable;
     size_t sizeof_userdata;
     void (*cleanup_userdata)(void *userdata);
+    unsigned default_timeout;
     struct Timeouts *timeouts;
 };
 
@@ -77,6 +78,24 @@ IS_BETWEEN(unsigned seqno, unsigned begin, unsigned end)
 {
     return SEQNO_GTE(seqno, begin) && SEQNO_LTE(seqno, end);
 }
+
+static int
+_frag_is_overlap(struct fragment *frag, unsigned seqno, unsigned length)
+{
+    if (SEQNO_LT(seqno + length + 1, frag->seqno))
+        return 0;
+    else if (SEQNO_GT(seqno, frag->seqno + frag->length + 1))
+        return 0;
+    else
+        return 1;
+}
+static int
+_frag_is_after(struct fragment *frag, unsigned seqno, unsigned length)
+{
+    return SEQNO_GT(frag->seqno, seqno + length + 1);
+}
+
+
 
 /**
  * Merge this fragment and the next fragment if they overflap
@@ -160,7 +179,7 @@ _frag_merge(struct fragment **frag, unsigned seqno, const unsigned char *buf, un
         diff = (*frag)->length - overlap;
         
         /* Grow the existing fragment */
-        (*frag) = realloc(*frag, sizeof(**frag) + (*frag)->length + diff);
+        (*frag) = realloc(*frag, sizeof(**frag) + length + diff);
         
         if (*frag == NULL) {
             /* Out-of-Memory: delete all fragments */
@@ -177,6 +196,20 @@ _frag_merge(struct fragment **frag, unsigned seqno, const unsigned char *buf, un
         (*frag)->length = length + diff;
         (*frag)->seqno = seqno;
     }
+    
+    /* See if we need to merge again with the next fragment */
+    if ((*frag)->next && _frag_is_overlap(*frag, (*frag)->next->seqno, (*frag)->next->length)) {
+        struct fragment *next = (*frag)->next;
+        
+        /* Unlink the next fragment from the chain */
+        (*frag)->next = next->next;
+      
+        /* Recursively call this function */
+        _frag_merge(frag, next->seqno, next->buf, next->length);
+        
+        free(next);
+    }
+
 }
 
 struct fragment *
@@ -198,34 +231,21 @@ _fragment_new(unsigned seqno, const unsigned char *buf, unsigned length, struct 
     return newfrag;
 }
 
-static int
-_frag_is_overlap(struct fragment *frag, unsigned seqno, unsigned length)
-{
-    if (SEQNO_LT(seqno + length + 1, frag->seqno))
-        return 0;
-    else if (SEQNO_GT(seqno, frag->seqno + frag->length + 1))
-        return 0;
-    else
-        return 1;
-}
-static int
-_frag_is_after(struct fragment *frag, unsigned seqno, unsigned length)
-{
-    return SEQNO_GT(frag->seqno, seqno + length + 1);
-}
 static size_t
 tcp_append(struct tcpreasm_stream_t *stream, unsigned seqno, const unsigned char *buf, unsigned length)
 {
-    /* If there's nothing here, such as an ACK packet, then
-     * return immediately */
-    if (length == 0)
-        goto end;
+    if (stream == NULL || length == 0)
+        return 0;
     
+    //printf("dst port %u\n", stream->conn.dst_port);
+
     /* set the first sequence number */
     if (!stream->is_payload_seen) {
         stream->seqno = seqno;
         stream->is_payload_seen = 1;
     }
+    
+    //printf("%u -> %u\n", seqno - stream->seqno, seqno - stream->seqno + length);
     
     if (stream->fragments == NULL) {
         stream->fragments = _fragment_new(seqno, buf, length, NULL);
@@ -235,10 +255,6 @@ tcp_append(struct tcpreasm_stream_t *stream, unsigned seqno, const unsigned char
         for (frag=&stream->fragments; *frag; frag = &(*frag)->next) {
             if (_frag_is_overlap(*frag, seqno, length)) {
                 _frag_merge(frag, seqno, buf, length);
-                if ((*frag)->next && _frag_is_overlap(*frag, (*frag)->next->seqno, (*frag)->next->length)) {
-                    printf("unhandled condition: double overlap\n");
-                    /* FIXME: what if the incoming fragment is so big it overlaps multiple existing fragments? */
-                }
                 length = 0;
             } else if (_frag_is_after(*frag, seqno, length))
                 break;
@@ -246,13 +262,7 @@ tcp_append(struct tcpreasm_stream_t *stream, unsigned seqno, const unsigned char
         if (length)
             *frag = _fragment_new(seqno, buf, length, *frag);
     }
-    
-    
-    
-end:
-    if (stream->fragments) {
-        printf("seqno=%u fragno=%u length=%u\n", stream->seqno, stream->fragments->seqno, stream->fragments->length);
-    }
+
     if (stream->fragments && stream->fragments->seqno == stream->seqno) {
         return stream->fragments->length;
     } else if (stream->fragments) {
@@ -274,7 +284,7 @@ bool connection_compare(void* keyA, void* keyB)
 }
 
 struct tcpreasm_ctx_t *
-tcpreasm_create(size_t userdata_size, void (*cleanup)(void *userdata), unsigned secs, unsigned usecs)
+tcpreasm_create(size_t userdata_size, void (*cleanup)(void *userdata), time_t started, unsigned default_timeout)
 {
     struct tcpreasm_ctx_t *ctx;
     
@@ -297,39 +307,53 @@ tcpreasm_create(size_t userdata_size, void (*cleanup)(void *userdata), unsigned 
     ctx->conntable = hashmapCreate(1024, connection_hash, connection_compare);
     ctx->sizeof_userdata = userdata_size;
     ctx->cleanup_userdata = cleanup;
+    ctx->default_timeout = default_timeout;
 
-    ctx->timeouts = timeouts_create(secs, usecs);
+    /* Create a timeouts subsystem for aging out old connections */
+    ctx->timeouts = timeouts_create(started, 0);
     return ctx;
 }
 
 struct tcpreasm_stream_t *
-_stream_new(struct tcpreasm_ctx_t *ctx, const struct tcpreasm_connkey_t *conn, unsigned secs, unsigned usecs)
+_stream_new(struct tcpreasm_ctx_t *ctx, const struct tcpreasm_connkey_t *conn, time_t secs, long nanosec)
 {
     struct tcpreasm_stream_t *stream;
     
+    /* Allocate memory for this object */
     stream = calloc(1, sizeof(*stream) + ctx->sizeof_userdata);
     if (stream == NULL)
         return NULL;
+    
+    /* Copy over src/dst addr/port */
     memcpy(&stream->conn, conn, sizeof(*conn));
 
-    timeouts_add(ctx->timeouts, &stream->timeout, offsetof(struct tcpreasm_stream_t, timeout), timestamp_from_tv(secs + 100, usecs));
+    /* Add a timeout when this connection will be destroyed, if it doesn't
+     * get destroyed earlier */
+    timeouts_add(ctx->timeouts,
+                 &stream->timeout,
+                 offsetof(struct tcpreasm_stream_t, timeout),
+                 secs + ctx->default_timeout, /* expiration timestamp */
+                 nanosec
+                 );
 
     hashmapPut(ctx->conntable, &stream->conn, stream);
     
     return stream;
 }
 
-static void
+static struct tcpreasm_stream_t *
 _stream_delete(struct tcpreasm_ctx_t *ctx, const struct tcpreasm_stream_t *in_stream)
 {
     struct tcpreasm_stream_t *stream;
     
+    /* Remove from the hashmap */
     stream = hashmapRemove(ctx->conntable, (void**)&in_stream->conn);
     assert(stream != NULL);
     
     /* Remove from the timeouts structure */
     timeout_unlink(&stream->timeout);
     
+    /* Free any unprocessed fragments */
     while (stream->fragments) {
         struct fragment *frag;
         frag = stream->fragments;
@@ -337,15 +361,20 @@ _stream_delete(struct tcpreasm_ctx_t *ctx, const struct tcpreasm_stream_t *in_st
         free(frag);
     }
     
+    /* If we've got a callback, then call it */
     if (ctx->cleanup_userdata)
         ctx->cleanup_userdata(stream->userdata);
+    
+    /* Finally, free the memory for this stream */
     free(stream);
+    
+    return NULL;
 }
 
-struct tcpreasm_handle_t
-tcpreasm_insert_packet(struct tcpreasm_ctx_t *ctx, const unsigned char *buf, size_t length, unsigned secs, unsigned usecs)
+struct tcpreasm_tuple_t
+tcpreasm_packet(struct tcpreasm_ctx_t *ctx, const unsigned char *buf, size_t length, time_t secs, long nanosec)
 {
-    struct tcpreasm_handle_t result = {0};
+    struct tcpreasm_tuple_t result = {0};
     struct tcpreasm_connkey_t conn = {0};
     size_t offset = 0;
     size_t hdrlen;
@@ -430,7 +459,7 @@ tcpreasm_insert_packet(struct tcpreasm_ctx_t *ctx, const unsigned char *buf, siz
             return result;
         }
         
-        stream = _stream_new(ctx, &conn, secs, usecs);
+        stream = _stream_new(ctx, &conn, secs, nanosec);
         
         if (stream == NULL) {
             /* out of memory */
@@ -439,17 +468,21 @@ tcpreasm_insert_packet(struct tcpreasm_ctx_t *ctx, const unsigned char *buf, siz
         
         /* initial sequence number for data, SYN=1-byte of virtual data */
         stream->seqno = seqno + 1;
+        stream->is_payload_seen = 1;
         
     } else if ((tcp_flags & RST) != 0) {
         /* A RST was received, indicating the connection needs to be
          * closed */
         _stream_delete(ctx, stream);
+        stream = NULL;
     } else if ((tcp_flags & FIN) != 0) {
         /* The connection was closed, ony close the connection if
          * there's no pending data, otherwise, wait for timeout
          * to cleanup the connection */
-        if (stream->fragments == NULL)
+        if (stream->fragments == NULL) {
             _stream_delete(ctx, stream);
+            stream = NULL;
+        }
     }
 
     /* Append this data */
@@ -465,7 +498,7 @@ fail:
 }
 
 
-size_t tcpreasm_read(struct tcpreasm_handle_t *handle, unsigned char *buf, size_t length)
+size_t tcpreasm_read(struct tcpreasm_tuple_t *handle, unsigned char *buf, size_t length)
 {
     struct tcpreasm_stream_t *stream;
     struct fragment *frag;
@@ -502,4 +535,25 @@ size_t tcpreasm_read(struct tcpreasm_handle_t *handle, unsigned char *buf, size_
     stream->seqno += length;
     
     return length;
+}
+
+size_t tcpreasm_timeouts(struct tcpreasm_ctx_t *ctx, time_t secs, long nanosec)
+{
+    size_t count = 0;
+    
+    for (;;) {
+        struct tcpreasm_stream_t *stream;
+        
+        /* Get the next timeout structure */
+        stream = timeouts_remove_older(ctx->timeouts, secs, nanosec);
+        if (stream == NULL)
+            break;
+        count++;
+        
+        /* Delete it */
+        _stream_delete(ctx, stream);
+        stream = NULL;
+    }
+    
+    return count;
 }

@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 #include <stddef.h>
+#include <time.h>
 
 /**
  * This opaque structure represents the context for reading/writing the
@@ -46,7 +47,7 @@ enum {
  * that tells how to start parsing the first bytes of a frame.
  */
 struct pcapfile_ctx_t *
-pcapfile_openread(const char *filename, int *linktype, unsigned *secs, unsigned *usecs);
+pcapfile_openread(const char *filename, int *linktype, time_t *secs, long *usecs);
 
 /**
  * Writes a packet to a file created with pcapfile_openwrite().
@@ -82,18 +83,17 @@ void pcapfile_set_max(struct pcapfile_ctx_t *capfile, unsigned max_megabytes, un
  * @param ctx
  *      A handle to a file returned from pcapfile_openread().
  * @param buf
- *      A buffer allocated by the caller where the bytes
+ *      Receives a pointer to the buffer holding the packet.
  * @return
  *  0 on success, or any other value on failure.
  */
 int pcapfile_readframe(
 	struct pcapfile_ctx_t *ctx,
-	unsigned *r_time_secs,
-	unsigned *r_time_usecs,
-	unsigned *r_original_length,
-	unsigned *r_captured_length,
-	unsigned char *buf,
-	unsigned sizeof_buf
+	time_t *secs,
+	long *usecs,
+	size_t *original_length,
+	size_t *captured_length,
+	const unsigned char **buf
 	);
 
 
