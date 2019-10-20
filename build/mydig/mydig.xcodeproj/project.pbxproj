@@ -26,6 +26,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		111949FC2357A76600AFB904 /* unittest.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = unittest.xctestplan; sourceTree = "<group>"; };
 		112F7AE6234D1BB700BE8B26 /* mydig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mydig; sourceTree = BUILT_PRODUCTS_DIR; };
 		112F7AF0234D1BE800BE8B26 /* dns-parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-parse.c"; path = "../../../src/dns-parse.c"; sourceTree = "<group>"; };
 		112F7AF2234D1C0A00BE8B26 /* dns-parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "dns-parse.h"; path = "../../../src/dns-parse.h"; sourceTree = "<group>"; };
@@ -72,6 +73,7 @@
 				112F7AF4234D1C0A00BE8B26 /* dns-format.h */,
 				112F7AF2234D1C0A00BE8B26 /* dns-parse.h */,
 				112F7AF0234D1BE800BE8B26 /* dns-parse.c */,
+				111949FC2357A76600AFB904 /* unittest.xctestplan */,
 			);
 			path = mydig;
 			sourceTree = "<group>";

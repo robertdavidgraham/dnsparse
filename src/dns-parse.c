@@ -873,16 +873,9 @@ _copy_bytes(struct streamr_t *src, const unsigned char **dst, size_t *dst_length
     return src->is_error;
 }
 
-size_t _next_save(const struct streamr_t *src)
-{
-    return src->offset;
-}
-void _next_restore(struct streamr_t *src, size_t old_offset)
-{
-    src->offset = old_offset;
-}
-
-
+/**
+ * Grab the next resource-record from the stream.
+ */
 static int
 _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, struct streamr_t packet, struct streamr_t rdata)
 {
@@ -1126,6 +1119,7 @@ _default_realloc(void *p, size_t newsize, void *arena)
 }
 
 
+
 static void
 _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsigned options)
 {
@@ -1138,7 +1132,7 @@ _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsi
     size_t total_record_count;
     struct dnsrrdata_t *records;
 
-    /* FIXME: don't use this parameter yet, but I will */
+    /* FIXME: I don't use this parameter yet, but I will */
     (void)options;
     
     /* skip xid and flags field, as those were parsed in pass#0 */

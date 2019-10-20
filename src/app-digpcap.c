@@ -41,7 +41,7 @@ _process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
             continue;
 
         /* Print in DIG format (i.e. zonefile format) */
-        printf("%s%-23s %-7u IN\t%-7s %s\n",
+        if (0) printf("%s%-23s %-7u IN\t%-7s %s\n",
             (rr->section == 0) ? ";" : "",
              rr->name,
              rr->ttl,
