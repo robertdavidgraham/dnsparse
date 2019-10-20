@@ -307,7 +307,7 @@ _repair(struct pcapfile_ctx_t *ctx,
 
         /* If we reach the end without finding a good frame, then stop */
         if (bytes_read == 0) {
-            if (bytes_read < 0)
+            if (ferror(ctx->fp))
                 perror(ctx->filename);
             else
                 fprintf(stderr, "%s: premature end of file\n", ctx->filename);
@@ -437,7 +437,7 @@ int pcapfile_readframe(
 	/* Read in the 16-byte frame header. */
 	bytes_read = fread(header, 1, 16, ctx->fp);
 	if (bytes_read < 16) {
-		if (bytes_read < 0)
+		if (bytes_read == 0 && ferror(ctx->fp))
 			perror(ctx->filename);
 		else if (bytes_read == 0)
 			; /* normal end-of-file */

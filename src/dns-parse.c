@@ -14,8 +14,9 @@
 
 enum {DNS_query, DNS_answer, DNS_nameserver, DNS_additional};
 
-#if defined(_MSCVER) || defined(HAVE_MEMCPY_S)
+#if defined(_MSC_VER) || defined(HAVE_MEMCPY_S)
 #define _memcpy_s memcpy_s
+#define inline __inline
 #else
 int
 _memcpy_s(void *dst, size_t sizeof_dst, const void *src, size_t count)
@@ -142,7 +143,7 @@ _append_number(unsigned char *dst, size_t dst_offset, size_t sizeof_dst, unsigne
         n /= 10;
         tmp[tmp_offset++] = '0' + digit;
     }
-    tmp[tmp_offset++] = '0' + n; /* the final digit, may be zero */
+    tmp[tmp_offset++] = '0' + (unsigned char)n; /* the final digit, may be zero */
 
     /* Copy the result backwards */
     while (tmp_offset)
@@ -514,7 +515,6 @@ _copy_domainname(struct streamr_t *src, struct streamr_t packet, const unsigned 
 {
     unsigned char tmpname[256];
     size_t name_length;
-    int err;
     unsigned char *newname;
     
     /* Force the name to be NULL in case of parsing errors later */

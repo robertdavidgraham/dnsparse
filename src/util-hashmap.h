@@ -20,6 +20,7 @@
 #define __HASHMAP_H
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
