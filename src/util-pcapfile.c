@@ -560,7 +560,7 @@ pcapfile_openread(const char *filename, int *out_linktype, time_t *secs, long *u
 	case 0xa1b2c3d4:	byte_order = CAPFILE_BIGENDIAN; break;
 	case 0xd4c3b2a1:	byte_order = CAPFILE_LITTLEENDIAN; break;
 	default:
-		fprintf(stderr, "%s: unknown byte-order in cap file\n", filename);
+		fprintf(stderr, "%s: unknown byte-order in cap file: 0x%08x\n", filename, (unsigned)buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
 		byte_order = CAPFILE_ENDIANUNKNOWN; break;
 	}
 

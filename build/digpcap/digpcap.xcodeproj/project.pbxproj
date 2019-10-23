@@ -81,6 +81,7 @@
 		114E5968234BC08000A78EA6 /* digpcap */ = {
 			isa = PBXGroup;
 			children = (
+				114E5973234BC2E000A78EA6 /* app-digpcap.c */,
 				111949E02350FB0900AFB904 /* util-timeouts.c */,
 				111949DF2350FB0900AFB904 /* util-timeouts.h */,
 				111949DA234E4D1900AFB904 /* siphash24.c */,
@@ -95,7 +96,6 @@
 				114E5978234BD6B400A78EA6 /* util-hashmap.h */,
 				114E5975234BD17000A78EA6 /* util-packet.c */,
 				114E5976234BD17000A78EA6 /* util-packet.h */,
-				114E5973234BC2E000A78EA6 /* app-digpcap.c */,
 				114E5970234BC12300A78EA6 /* util-pcapfile.c */,
 				114E5971234BC12300A78EA6 /* util-pcapfile.h */,
 			);

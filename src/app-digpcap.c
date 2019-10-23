@@ -50,7 +50,21 @@ _process_dns(const unsigned char *buf, size_t length, struct dns_t *dns, const c
         case DNS_T_CNAME:
         case DNS_T_SOA:
         case DNS_T_PTR:
-            break;
+        case DNS_T_RRSIG:
+        case DNS_T_TXT:
+        case DNS_T_MX:
+        case DNS_T_CAA:
+        case DNS_T_HINFO:
+        case DNS_T_DNSKEY:
+        case DNS_T_NSEC3PARAM:
+        case DNS_T_SPF:
+        case DNS_T_NSEC:
+        case DNS_T_CDS:
+        case DNS_T_SRV:
+        case DNS_T_SSHFP:
+        case DNS_T_CDNSKEY:
+        case DNS_T_NAPTR:
+                //break;
         default:
         /* Print in DIG format (i.e. zonefile format) */
         printf("%s%-23s %-7u IN\t%-7s %s\n",

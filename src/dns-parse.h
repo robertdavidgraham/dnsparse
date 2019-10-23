@@ -76,6 +76,8 @@ enum {
     DNS_T_NSEC3     = 50,
     DNS_T_NSEC3PARAM = 51,
     DNS_T_TLSA      = 52,
+    DNS_T_CDS       = 59,
+    DNS_T_CDNSKEY   = 60,
     DNS_T_SPF       = 99,
     //DNS_T_AXFR      = 252,
     //DNS_T_ANY       = 255,
@@ -320,6 +322,23 @@ typedef struct dnsrrdata_t
             struct dnsrrbuf_t regexp;
             const unsigned char *replacement;
         } naptr;
+        
+        /* DS (43) */
+        struct {
+            unsigned short key_tag;
+            unsigned char algorithm;
+            unsigned char digest_type;
+            const unsigned char *digest;
+            size_t length;
+        } ds;
+        
+        /* DSSHFP (44) SSH fingerprint - rfc4255*/
+        struct {
+            unsigned char algorithm;
+            unsigned char fp_type;
+            const unsigned char *fingerprint;
+            size_t length;
+        } sshfp;
 
         /* RRSIG (46) - Resource Record Signature - rfc4034 */
         struct {

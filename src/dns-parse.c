@@ -177,6 +177,20 @@ _next_uint8(struct streamr_t *s)
     }
 }
 
+
+static unsigned short
+_next_uint16_peek(struct streamr_t *s, int *is_exists)
+{
+    if (s->offset + 1 < s->length) {
+        *is_exists = 1;
+        return s->buf[s->offset]<<8 | s->buf[s->offset+1];
+    } else {
+        *is_exists = 0;
+        return 0;
+    }
+}
+
+
 /**
  * Reads next 16-bit big-endian number and moves offset forward
  */
@@ -190,6 +204,8 @@ _next_uint16(struct streamr_t *s)
     
     return result;
 }
+
+
 
 /**
  * Reads next 32-bit big-endian number and moves offset forward
@@ -492,6 +508,93 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
         
 }
 
+#define NAMECACHE_MAX 4
+struct domainname_cache
+{
+    size_t count;
+    unsigned short offsets[NAMECACHE_MAX];
+    const unsigned char *names[NAMECACHE_MAX];
+};
+
+static void inline
+_cache_init(struct domainname_cache *namecache)
+{
+    memset(namecache->offsets, 0, sizeof(namecache->offsets));
+    namecache->count = 0;
+}
+
+static void inline
+_cache_add(struct domainname_cache *namecache, unsigned short offset, const unsigned char **name, int is_postalloc)
+{
+    size_t i;
+    
+    /* Use of namecache is optional, if NULL, then nothing to do. */
+    if (namecache == NULL)
+        return;
+    
+    /* Ignore duplicates */
+    for (i=0; i<namecache->count; i++) {
+        if (namecache->offsets[i] == offset)
+            return;
+    }
+    
+    /* If space in our cache, add it */
+    if (namecache->count < NAMECACHE_MAX) {
+        namecache->offsets[namecache->count] = offset;
+        if (is_postalloc) {
+            namecache->names[namecache->count] = *name;
+        } else {
+            /* Don't reference the pointer in first pass, when it doesn't
+             * actually exist */
+            namecache->names[namecache->count] = (const unsigned char*)"fail";
+        }
+        namecache->count++;
+    }
+}
+
+static int
+_cache_bypass(struct streamr_t *src, const unsigned char **dst, struct domainname_cache *namecache, int is_postalloc)
+{
+    int is_exists = 0;
+    unsigned short offset;
+    size_t i;
+    
+    /* Sometimes this function is called without using a cache, in which
+     * case return as if nothing was found in the cache */
+    if (namecache == NULL)
+        return 0;
+    
+    /* Peek at the parsed domain name looking for a compression pointer. We
+     * only support compressed names, not uncompressed names */
+    offset = _next_uint16_peek(src, &is_exists);
+    if (!is_exists)
+        return 0;
+    if ((offset & 0xC000) != 0xC000)
+        return 0;
+    else
+        offset &= 0x3FFF;
+    
+    /* Lookup the offset in our short list of offsets */
+    for (i=0; i<namecache->count; i++) {
+        if (namecache->offsets[i] == offset) {
+            
+            /* Point this to the existing name */
+            if (is_postalloc) {
+                *dst = namecache->names[i];
+            }
+            
+            /* Skip this name */
+            _skip_name(src);
+            
+            /* Return a flag indicating success */
+            return 1;
+        }
+    }
+    
+    /* not found */
+    return 0;
+}
+
 /**
  * Extracts a (compressed) DNS name from the packet, converting to a
  * nul-temrinated string, and allocating bytes to contain it. Because of name
@@ -513,11 +616,17 @@ _next_domainname(struct streamr_t *rdata, struct streamr_t packet, unsigned char
  *      This represents the allocator from which we are getting memory.
  */
 static int
-_copy_domainname(struct streamr_t *src, struct streamr_t packet, const unsigned char **dst, struct dns_t **dns)
+_copy_domainname(struct streamr_t *src, struct streamr_t packet, const unsigned char **dst, struct dns_t **dns, struct domainname_cache *namecache)
 {
     unsigned char tmpname[256];
     size_t name_length;
     unsigned char *newname;
+    unsigned name_offset;
+    
+    /* If the name is in our cache, then bypass parsing it from the packet */
+    if (_cache_bypass(src, dst, namecache, (*dns)->mem.is_postalloc))
+        return 0;
+    name_offset = (unsigned)src->offset;
     
     /* Force the name to be NULL in case of parsing errors later */
     if ((*dns)->mem.is_postalloc)
@@ -541,6 +650,9 @@ _copy_domainname(struct streamr_t *src, struct streamr_t packet, const unsigned 
         _memcpy_s(newname, name_length + 1, tmpname, name_length + 1);
         *dst = newname;
     }
+    
+    /* Add the name to our cache */
+    _cache_add(namecache, name_offset, dst, (*dns)->mem.is_postalloc);
     
     /* success */
     return 0;
@@ -732,8 +844,8 @@ static const struct dnstypes dnstypes[] = {
     {"NINFO", 56},
     {"RKEY", 57},
     {"TALINK", 58},
-    {"CDS", 59},
-    {"CDNSKEY", 60},
+    {"CDS", DNS_T_CDS}, /* 59 */
+    {"CDNSKEY", DNS_T_CDNSKEY}, /* 60 */
     {"OPENPGPKEY", 61},
     {"CSYNC", 62},
     {"ZONEMD", 63},
@@ -905,10 +1017,10 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             * name.
             *   google.com IN NS ns2.google.com.
             */
-            _copy_domainname(&rdata, packet, &rr->ns.name, dns);
+            _copy_domainname(&rdata, packet, &rr->ns.name, dns, 0);
             break;
         case DNS_T_CNAME: /* canonical name */
-            _copy_domainname(&rdata, packet, &rr->cname.name, dns);
+            _copy_domainname(&rdata, packet, &rr->cname.name, dns, 0);
             break;
         case DNS_T_SOA: /* Start of zone Authority */
             /* A typical SOA record, two DNS names (possibly compressed)
@@ -916,8 +1028,8 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             *   google.com    IN SOA ns1.google.com dns-admin.google.com 268869309 900 900 1800 60
             *   twitter.com. IN    SOA    ns1.p26.dynect.net. zone-admin.dyndns.com. 2007142997 3600 600 604800 60
             */
-            _copy_domainname(&rdata, packet, &rr->soa.mname, dns);
-            _copy_domainname(&rdata, packet, &rr->soa.rname, dns);
+            _copy_domainname(&rdata, packet, &rr->soa.mname, dns, 0);
+            _copy_domainname(&rdata, packet, &rr->soa.rname, dns, 0);
             _copy_uint32(&rdata, &rr->soa.serial, is_copyable);
             _copy_uint32(&rdata, &rr->soa.refresh, is_copyable);
             _copy_uint32(&rdata, &rr->soa.retry, is_copyable);
@@ -925,7 +1037,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_uint32(&rdata, &rr->soa.minimum, is_copyable);
             break;
         case DNS_T_PTR: /* pointer (reverse lookup) */
-            _copy_domainname(&rdata, packet, &rr->ptr.name, dns);
+            _copy_domainname(&rdata, packet, &rr->ptr.name, dns, 0);
             break;
         case DNS_T_HINFO: /* host info */
             _next_charstring(&rdata, &rr->hinfo.cpu.buf, &rr->hinfo.cpu.length, dns);
@@ -940,7 +1052,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
              *  gmail.com.        2625    IN    MX    10 alt1.gmail-smtp-in.l.google.com.
              *  gmail.com.        2625    IN    MX    20 alt2.gmail-smtp-in.l.google.com.*/
             _copy_uint16(&rdata, &rr->mx.priority, is_copyable);
-            _copy_domainname(&rdata, packet, &rr->mx.name, dns);
+            _copy_domainname(&rdata, packet, &rr->mx.name, dns, 0);
             break;
         case DNS_T_SPF: /* SPF - same as text */
         case DNS_T_TXT: /* text records
@@ -997,8 +1109,8 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             break;
 
         case DNS_T_RP: /* Responsible Person */
-            _copy_domainname(&rdata, packet, &rr->rp.mbox_dname, dns);
-            _copy_domainname(&rdata, packet, &rr->rp.txt_dname, dns);
+            _copy_domainname(&rdata, packet, &rr->rp.mbox_dname, dns, 0);
+            _copy_domainname(&rdata, packet, &rr->rp.txt_dname, dns, 0);
             break;
 
         case DNS_T_AAAA: /* IPv6 address */
@@ -1009,7 +1121,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_uint16(&rdata, &rr->srv.priority, is_copyable);
             _copy_uint16(&rdata, &rr->srv.weight, is_copyable);
             _copy_uint16(&rdata, &rr->srv.port, is_copyable);
-            _copy_domainname(&rdata, packet, &rr->srv.name, dns);
+            _copy_domainname(&rdata, packet, &rr->srv.name, dns, 0);
             break;
 
         case DNS_T_NAPTR: /* Naming Authority Pointer for SIP[RFC 2915]  */
@@ -1018,7 +1130,23 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _next_charstring(&rdata, &rr->naptr.flags.buf, &rr->naptr.flags.length, dns);
             _next_charstring(&rdata, &rr->naptr.service.buf, &rr->naptr.service.length, dns);
             _next_charstring(&rdata, &rr->naptr.regexp.buf, &rr->naptr.regexp.length, dns);
-            _copy_domainname(&rdata, packet, &rr->naptr.replacement, dns);
+            _copy_domainname(&rdata, packet, &rr->naptr.replacement, dns, 0);
+            break;
+            
+        case DNS_T_DS: /* 43 */
+        case DNS_T_CDS: /* 59 */
+            _copy_uint16(&rdata, &rr->ds.key_tag, is_copyable);
+            _copy_uint8(&rdata, &rr->ds.algorithm , is_copyable);
+            _copy_uint8(&rdata, &rr->ds.digest_type, is_copyable);
+            len = rdata.length - rdata.offset; /* all remaining bytes in rdata field */
+            _copy_bytes(&rdata, &rr->ds.digest, &rr->ds.length, len, dns);
+            break;
+        
+        case DNS_T_SSHFP: /* 44 */
+            _copy_uint8(&rdata, &rr->sshfp.algorithm , is_copyable);
+            _copy_uint8(&rdata, &rr->sshfp.fp_type, is_copyable);
+            len = rdata.length - rdata.offset; /* all remaining bytes in rdata field */
+            _copy_bytes(&rdata, &rr->sshfp.fingerprint, &rr->sshfp.length, len, dns);
             break;
                 
         case DNS_T_RRSIG: /* Resource Record Signature for DNSSEC */
@@ -1029,7 +1157,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_uint32(&rdata, &rr->rrsig.expiration, is_copyable);
             _copy_uint32(&rdata, &rr->rrsig.inception, is_copyable);
             _copy_uint16(&rdata, &rr->rrsig.keytag, is_copyable);
-            _copy_domainname(&rdata, packet, &rr->rrsig.name, dns);
+            _copy_domainname(&rdata, packet, &rr->rrsig.name, dns, 0);
             len = rdata.length - rdata.offset; /* all remaining bytes in rdata field */
             _copy_bytes(&rdata, &rr->rrsig.sig, &rr->rrsig.length, len, dns);
             break;
@@ -1040,7 +1168,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             size_t types_count = 0;
             unsigned short *tmp;
             
-            _copy_domainname(&rdata, packet, &rr->nsec.name, dns);
+            _copy_domainname(&rdata, packet, &rr->nsec.name, dns, 0);
             
             while (rdata.offset < rdata.length) {
                 unsigned char window = _next_uint8(&rdata);
@@ -1075,12 +1203,14 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             break;
         
         case DNS_T_DNSKEY: /* DNSKEY */
+        case DNS_T_CDNSKEY: /* 60 */
             _copy_uint16(&rdata, &rr->dnskey.flags, is_copyable);
             _copy_uint8(&rdata, &rr->dnskey.protocol, is_copyable);
             _copy_uint8(&rdata, &rr->dnskey.algorithm, is_copyable);
             len = rdata.length - rdata.offset; /* all remaining bytes */
             _copy_bytes(&rdata, &rr->dnskey.publickey, &rr->dnskey.length, len, dns);
             break;
+
         case DNS_T_NSEC3PARAM: /* NSEC3PARAM */
             _copy_uint8(&rdata, &rr->nsec3param.algorithm, is_copyable);
             _copy_uint8(&rdata, &rr->nsec3param.flags, is_copyable);
@@ -1140,6 +1270,10 @@ _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsi
     size_t additional_count;
     size_t total_record_count;
     struct dnsrrdata_t *records;
+    struct domainname_cache namecache;
+    
+    /* Cache some names we extract from the packet */
+    _cache_init(&namecache);
 
     /* FIXME: I don't use this parameter yet, but I will */
     (void)options;
@@ -1208,7 +1342,7 @@ _parse_records(struct dns_t **dns, const unsigned char *buf, size_t length, unsi
 
         /* First, get the name. This may be either the full name, or a compressed name.
          * Either way, we fully extract it and validate it. */
-        err = _copy_domainname(&packet, packet, &rr->name, dns);
+        err = _copy_domainname(&packet, packet, &rr->name, dns, &namecache);
         if (err) {
             (*dns)->error_code = err;
             return;

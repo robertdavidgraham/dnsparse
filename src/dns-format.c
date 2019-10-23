@@ -477,7 +477,7 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_string(out, rr->srv.name);
         break;
 
-    case 35: /* RFC 2915 - NAPTR - Naming Authority Pointer for SIP */
+    case DNS_T_NAPTR: /* RFC 2915 - NAPTR - Naming Authority Pointer for SIP */
         _append_decimal(out, rr->naptr.order);
         _append_char(out, ' ');
         _append_decimal(out, rr->naptr.preference);
@@ -490,8 +490,32 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_char(out, ' ');
         _append_string(out, rr->naptr.replacement);
         break;
-        
-    case 46: /* RRSIG */
+            
+    case DNS_T_DS:
+    case DNS_T_CDS:
+        _append_decimal(out, rr->ds.key_tag);
+        _append_char(out, ' ');
+
+        _append_decimal(out, rr->ds.algorithm);
+        _append_char(out, ' ');
+
+        _append_decimal(out, rr->ds.digest_type);
+        _append_char(out, ' ');
+
+        _append_hexdump(out, rr->ds.digest, rr->ds.length);
+        break;
+
+    case DNS_T_SSHFP:
+        _append_decimal(out, rr->sshfp.algorithm);
+        _append_char(out, ' ');
+
+        _append_decimal(out, rr->sshfp.fp_type);
+        _append_char(out, ' ');
+
+        _append_hexdump(out, rr->sshfp.fingerprint, rr->sshfp.length);
+        break;
+
+    case DNS_T_RRSIG: /*  */
         _append_string(out, dns_name_from_rrtype(rr->rrsig.type));
         _append_char(out, ' ');
 
@@ -519,7 +543,7 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_base64(out, rr->rrsig.sig, rr->rrsig.length);
         break;
             
-    case 47: /* NSEC */
+    case DNS_T_NSEC:
         _append_string(out, rr->nsec.name);
         {
             size_t j;
@@ -530,7 +554,8 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         }
         break;
 
-    case 48: /* DNSKEY */
+    case DNS_T_DNSKEY:
+    case DNS_T_CDNSKEY:
         _append_decimal(out, rr->dnskey.flags);
         _append_char(out, ' ');
 
@@ -543,7 +568,7 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_base64(out, rr->dnskey.publickey, rr->dnskey.length);
         break;
 
-    case 51: /* NEC3PARAM */
+    case DNS_T_NSEC3PARAM:
         _append_decimal(out, rr->nsec3param.algorithm);
         _append_char(out, ' ');
 
@@ -561,7 +586,7 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         }
         break;
 
-    case 257: /* CAA - certficate authority */
+    case DNS_T_CAA: /* certficate authority */
         _append_decimal(out, rr->caa.flags);
         _append_char(out, ' ');
 
