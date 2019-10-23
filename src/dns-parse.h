@@ -303,6 +303,14 @@ typedef struct dnsrrdata_t
             unsigned char ipv6[16];
         } aaaa;
         
+        /* SRV (33) - service */
+        struct {
+            unsigned short priority;
+            unsigned short weight;
+            unsigned short port;
+            const unsigned char *name;
+        } srv;
+
         /* NAPTR (35) - Naming Authority Pointer - rfc3403 */
         struct {
             unsigned short order;

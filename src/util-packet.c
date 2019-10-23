@@ -146,7 +146,7 @@ parse_tcp:
         info->app_offset = offset + tcp_length;
         info->app_length = length - info->app_offset;
         info->transport_length = length - info->transport_offset;
-        assert(info->app_length < 2000);
+        assert(info->app_length < 10000);
 
         return SUCCESS;
     }

@@ -294,6 +294,8 @@ _skip_name(struct streamr_t *src)
         
         /* get the tag/length byte*/
         c = _next_uint8(src);
+        if (src->is_error)
+            return src->is_error;
         
         if (c == 0x00) {
             /* The last label ending a name */
@@ -1001,6 +1003,13 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
 
         case DNS_T_AAAA: /* IPv6 address */
             _next_memcpy(&rdata, rr->aaaa.ipv6, sizeof(rr->aaaa.ipv6), 16, is_copyable);
+            break;
+
+        case DNS_T_SRV:
+            _copy_uint16(&rdata, &rr->srv.priority, is_copyable);
+            _copy_uint16(&rdata, &rr->srv.weight, is_copyable);
+            _copy_uint16(&rdata, &rr->srv.port, is_copyable);
+            _copy_domainname(&rdata, packet, &rr->srv.name, dns);
             break;
 
         case DNS_T_NAPTR: /* Naming Authority Pointer for SIP[RFC 2915]  */

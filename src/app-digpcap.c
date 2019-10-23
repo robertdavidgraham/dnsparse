@@ -3,6 +3,7 @@
 #include "util-tcpreasm.h"
 #include "dns-parse.h"
 #include "dns-format.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -13,7 +14,7 @@
  * Handle a TCP packet, either UDP packet read from the stream, or a reassembled TCP payload.
  */
 static struct dns_t *
-_process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
+_process_dns(const unsigned char *buf, size_t length, struct dns_t *dns, const char *filename, uint64_t frame_number)
 {
     size_t i;
     int err;
@@ -23,8 +24,10 @@ _process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
                     length,
                     0,
                     dns);
-    if (dns == NULL || dns->error_code)
+    if (dns == NULL || dns->error_code) {
+        fprintf(stderr, "%s:%llu: error parsing DNS\n", filename, frame_number);
         return dns;
+    }
     
     /* Process all the records in the DNS packet */
     for (i=0; i<dns->answer_count + dns->nameserver_count + dns->additional_count; i++) {
@@ -40,12 +43,22 @@ _process_dns(const unsigned char *buf, size_t length, struct dns_t *dns)
         if (err)
             continue;
 
+        switch (rr->rtype) {
+        case DNS_T_A:
+        case DNS_T_AAAA:
+        case DNS_T_NS:
+        case DNS_T_CNAME:
+        case DNS_T_SOA:
+        case DNS_T_PTR:
+            break;
+        default:
         /* Print in DIG format (i.e. zonefile format) */
-        if (0) printf("%s%-23s %-7u IN\t%-7s %s\n",
+        printf("%s%-23s %-7u IN\t%-7s %s\n",
             (rr->section == 0) ? ";" : "",
              rr->name,
              rr->ttl,
              dns_name_from_rrtype(rr->rtype), output);
+        }
     }
     
     return dns;
@@ -90,7 +103,6 @@ _process_file(const char *filename)
     
     /* Create a subsystem for reassembling TCP streams */
     tcpreasm = tcpreasm_create(sizeof(struct dnstcp), 0, secs, 60);
-
     
     /*
      * Process all the packets read from the file
@@ -119,13 +131,12 @@ _process_file(const char *filename)
         if (decode.port_src != 53)
             continue;
         
-        /* If UDP, then decode this payload*/
         if (decode.ip_protocol == 17) {
-            recycle = _process_dns(buf + decode.app_offset, decode.app_length, recycle);
-        }
-        
-        /* If TCP, then reassemble the stream into a packet */
-        if (decode.ip_protocol == 6) {
+            /* If UDP, then decode this payload*/
+            recycle = _process_dns(buf + decode.app_offset, decode.app_length, recycle, filename, frame_number);
+        } else if (decode.ip_protocol == 6) {
+            /* If TCP, then reassemble the stream into a packet, then
+             * decode the reassembled packet if available */
             struct tcpreasm_tuple_t ins;
             
             ins = tcpreasm_packet(tcpreasm, /* reassembler */
@@ -137,6 +148,8 @@ _process_file(const char *filename)
                 struct dnstcp *d = (struct dnstcp *)ins.userdata;
                 if (d->state == 0) {
                     if (ins.available >= 2) {
+                        /* First, read the 2-byte header at the start of TCP
+                         * to know how long the remaining chunk is going to be */
                         unsigned char foo[2];
                         size_t count;
                         d->state = 1;
@@ -146,13 +159,14 @@ _process_file(const char *filename)
                 }
                 if (d->state == 1) {
                     if (d->pdu_length <= ins.available) {
+                        /* Once we have enough bytes available to reassemble
+                         * the DNS packet, reassemble it and decode it */
                         unsigned char tmp[65536];
                         size_t count;
                         count = tcpreasm_read(&ins, tmp, d->pdu_length);
-                        if (count == d->pdu_length) {
-                            recycle = _process_dns(tmp, count, recycle);
-                            d->state = 0;
-                        }
+                        assert(count == d->pdu_length);
+                        recycle = _process_dns(tmp, count, recycle, filename, frame_number);
+                        d->state = 0;
                     }
                 }
 
@@ -178,6 +192,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     
+    /* Process all files listed on the command-line */
     for (i=1; i<argc; i++) {
         _process_file(argv[i]);
     }

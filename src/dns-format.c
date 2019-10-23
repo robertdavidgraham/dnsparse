@@ -64,7 +64,9 @@ _append_decimal(stream_t *out, unsigned long long n)
         n /= 10;
         tmp[tmp_offset++] = '0' + digit;
     }
-    tmp[tmp_offset++] = '0' + n; /* the final digit, may be zero */
+    
+    /* the final digit, may be zero */
+    tmp[tmp_offset++] = (unsigned char)('0' + n);
 
     /* Copy the result backwards */
     while (tmp_offset)
@@ -90,7 +92,9 @@ _append_decimal2(stream_t *out, unsigned long long n, size_t min_digits)
         tmp[tmp_offset++] = '0' + digit;
         min_digits--;
     }
-    tmp[tmp_offset++] = '0' + n;
+    
+    /* final digit, may be zero */
+    tmp[tmp_offset++] = (unsigned char)('0' + n);
     min_digits--;
     while (min_digits-- && tmp_offset < sizeof(tmp) - 1)
         tmp[tmp_offset++] = '0';
@@ -377,7 +381,7 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
      * files should format these fields.
      */
     switch (rr->rtype) {
-    case 1: /* A */
+    case DNS_T_A: /* A */
         /* Four bytes of an IPv4 address
          *  google.com	A	IN	64.233.185.100
          */
@@ -393,7 +397,7 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         }
         break;
 
-    case 2: /* NS - name server */
+    case DNS_T_NS: /* NS - name server */
         /* A single DNS name. This may be a compressed or partially-compressed
          * name.
          *   google.com IN NS ns2.google.com.
@@ -401,11 +405,11 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_string(out, rr->ns.name);
         break;
 
-    case 5: /* CNAME - canonical name */
+    case DNS_T_CNAME: /* CNAME - canonical name */
         _append_string(out, rr->cname.name);
         break;
 
-    case 6: /* SOA - Start of zone Authority  */
+    case DNS_T_SOA: /* SOA - Start of zone Authority  */
         _append_string(out, rr->soa.mname);
         _append_char(out, ' ');
         _append_string(out, rr->soa.rname);
@@ -422,24 +426,24 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_decimal(out, rr->soa.minimum);
         break;
             
-    case 12: /* PTR - pointer (reverse lookup) */
+    case DNS_T_PTR: /* PTR - pointer (reverse lookup) */
         _append_string(out, rr->ptr.name);
         break;
             
-    case 13: /* RFC 1035 - HINFO - Host Info. */
+    case DNS_T_HINFO: /* RFC 1035 - HINFO - Host Info. */
         _append_dnstring(rr->hinfo.cpu.buf, rr->hinfo.cpu.length, out, 0);
         _append_char(out, ' ');
         _append_dnstring(rr->hinfo.os.buf, rr->hinfo.os.length, out, 0);
         break;
 
-    case 15: /* MX - mail exhchange*/
+    case DNS_T_MX: /* MX - mail exhchange*/
         _append_decimal(out, rr->mx.priority);
         _append_char(out, ' ');
         _append_string(out, rr->mx.name);
         break;
 
-    case 99: /* SPF - same as text */
-    case 16: /* TXT - text records */
+    case DNS_T_SPF: /* SPF - same as text */
+    case DNS_T_TXT: /* TXT - text records */
         for (i = 0; i < rr->txt.count; i++) {
             /* Put a space in front of every field, except the first one */
             if (i > 0) {
@@ -453,14 +457,24 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         }
         break;
 
-    case 17: /* RP - Responsible Person */
+    case DNS_T_RP: /* RP - Responsible Person */
         _append_string(out, rr->rp.mbox_dname);
         _append_char(out, ' ');
         _append_string(out, rr->rp.txt_dname);
         break;
 
-    case 28: /* AAAA - an IPv6 address */
+    case DNS_T_AAAA: /* AAAA - an IPv6 address */
         _append_ipv6(out, rr->aaaa.ipv6);
+        break;
+
+    case DNS_T_SRV:
+        _append_decimal(out, rr->srv.priority);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->srv.weight);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->srv.port);
+        _append_char(out, ' ');
+        _append_string(out, rr->srv.name);
         break;
 
     case 35: /* RFC 2915 - NAPTR - Naming Authority Pointer for SIP */

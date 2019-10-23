@@ -18,7 +18,17 @@
  */
 #ifndef __HASHMAP_H
 #define __HASHMAP_H
-#include <stdbool.h>
+#if defined(_MSC_VER)
+#if _MSC_VER >= 1800
+ #include <stdbool.h>
+#else
+ #define bool int
+ #define true TRUE
+ #define false FALSE
+#endif
+#else
+ #include <stdbool.h>
+#endif
 #include <stdlib.h>
 #include <stdint.h>
 #ifdef __cplusplus

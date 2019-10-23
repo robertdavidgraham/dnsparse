@@ -3,9 +3,15 @@
 #include "util-timeouts.h"
 #include "siphash24.h"
 #include <stdlib.h>
-#include <sys/time.h>
 #include <string.h>
 #include <assert.h>
+
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
 uint64_t connection_hash(void *key);
 
@@ -237,15 +243,11 @@ tcp_append(struct tcpreasm_stream_t *stream, unsigned seqno, const unsigned char
     if (stream == NULL || length == 0)
         return 0;
     
-    //printf("dst port %u\n", stream->conn.dst_port);
-
     /* set the first sequence number */
     if (!stream->is_payload_seen) {
         stream->seqno = seqno;
         stream->is_payload_seen = 1;
     }
-    
-    //printf("%u -> %u\n", seqno - stream->seqno, seqno - stream->seqno + length);
     
     if (stream->fragments == NULL) {
         stream->fragments = _fragment_new(seqno, buf, length, NULL);
@@ -291,11 +293,19 @@ tcpreasm_create(size_t userdata_size, void (*cleanup)(void *userdata), time_t st
     /* Create a hashmap key to make hashtables unpredictable.
      * FIXME: this should grab something more random */
     if (g_hashmap_key[0] == 0) {
+#ifdef WIN32
+        LARGE_INTEGER t;
+        QueryPerformanceCounter(&t);
+        g_hashmap_key[0] = t.QuadPart;
+        QueryPerformanceCounter(&t);
+        g_hashmap_key[1] = t.QuadPart;
+#else
         struct timeval tv;
         gettimeofday(&tv, 0);
         g_hashmap_key[0] = tv.tv_sec * 1000000000ULL + tv.tv_usec;
         gettimeofday(&tv, 0);
         g_hashmap_key[1] = tv.tv_sec * 1000000000ULL + tv.tv_usec;
+#endif
     }
     
     /* Allocate the object and set to zero */
@@ -418,7 +428,7 @@ tcpreasm_packet(struct tcpreasm_ctx_t *ctx, const unsigned char *buf, size_t len
             offset += hdrlen;
             
             while (conn.ip_proto != 6) {
-                unsigned char ext_len;
+                size_t ext_len;
                 if (conn.ip_proto == 1)
                     goto fail; /* ICMP */
                 if (conn.ip_proto == 17)
@@ -529,7 +539,7 @@ size_t tcpreasm_read(struct tcpreasm_tuple_t *handle, unsigned char *buf, size_t
         free(frag);
     } else {
         frag->length -= length;
-        memmove(frag->buf, frag->buf + length, frag->length - length);
+        memmove(frag->buf, frag->buf + length, frag->length);
         frag->seqno += length;
     }
     stream->seqno += length;

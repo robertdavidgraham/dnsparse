@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 #include "util-hashmap.h"
-//#include "util-threads.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <sys/types.h>
+
+#ifdef _MSC_VER
+#define __inline__ __inline
+#define inline __inline
+#endif
 
 #if !defined(_WIN32)
 #include <pthread.h>
@@ -88,16 +91,19 @@ struct Hashmap {
 };
 Hashmap* hashmapCreate(size_t initialCapacity,
         uint64_t (*hash)(void* key), bool (*equals)(void* keyA, void* keyB)) {
+    Hashmap* map;
+    size_t minimumBucketCount;
+
     assert(hash != NULL);
     assert(equals != NULL);
     
-    Hashmap* map = malloc(sizeof(Hashmap));
+    map = malloc(sizeof(Hashmap));
     if (map == NULL) {
         return NULL;
     }
     
     // 0.75 load factor.
-    size_t minimumBucketCount = initialCapacity * 4 / 3;
+    minimumBucketCount = initialCapacity * 4 / 3;
     map->bucketCount = 1;
     while (map->bucketCount <= minimumBucketCount) {
         // Bucket count must be power of 2.
@@ -140,6 +146,8 @@ static inline size_t _index_from_hash(size_t bucketCount, hash_t hash) {
 static void expandIfNecessary(Hashmap* map) {
     // If the load factor exceeds 0.75...
     if (map->size > (map->bucketCount * 3 / 4)) {
+        size_t i;
+
         // Start off with a 0.33 load factor.
         size_t newBucketCount = map->bucketCount << 1;
         Entry** newBuckets = calloc(newBucketCount, sizeof(Entry*));
@@ -149,7 +157,6 @@ static void expandIfNecessary(Hashmap* map) {
         }
         
         // Move over existing entries.
-        size_t i;
         for (i = 0; i < map->bucketCount; i++) {
             Entry* entry = map->buckets[i];
             while (entry != NULL) {
@@ -281,12 +288,14 @@ void* hashmapMemoize(Hashmap* map, void* key,
         Entry* current = *p;
         // Add a new entry.
         if (current == NULL) {
+            void* value;
+
             *p = _create_entry(key, hash, NULL);
             if (*p == NULL) {
                 errno = ENOMEM;
                 return NULL;
             }
-            void* value = initialValue(key, context);
+            value = initialValue(key, context);
             (*p)->value = value;
             map->size++;
             expandIfNecessary(map);
