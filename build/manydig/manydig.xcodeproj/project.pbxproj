@@ -7,13 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		114E59582349282100A78EA6 /* dns-format.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E59532349282000A78EA6 /* dns-format.c */; };
-		114E59592349282100A78EA6 /* dns-parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E59552349282100A78EA6 /* dns-parse.c */; };
-		114E595C234A81B600A78EA6 /* app-unittest.c in Sources */ = {isa = PBXBuildFile; fileRef = 114E595B234A81B600A78EA6 /* app-unittest.c */; };
+		1149BE47236CB60C00715876 /* util-timeouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 1149BE46236CB60C00715876 /* util-timeouts.c */; };
+		11A5A5C123664228009FBE16 /* dns-format.c in Sources */ = {isa = PBXBuildFile; fileRef = 11A5A5BF23664228009FBE16 /* dns-format.c */; };
+		11A5A5C423664243009FBE16 /* dns-parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 11A5A5C223664242009FBE16 /* dns-parse.c */; };
+		11C5F50823637FA8005525BC /* app-manydig.c in Sources */ = {isa = PBXBuildFile; fileRef = 11C5F50723637FA8005525BC /* app-manydig.c */; };
+		11C5F50B2363852D005525BC /* util-dispatch.c in Sources */ = {isa = PBXBuildFile; fileRef = 11C5F5092363852D005525BC /* util-dispatch.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		114E5946234927FE00A78EA6 /* CopyFiles */ = {
+		11C5F4FB23637F8D005525BC /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man1/;
@@ -25,17 +27,21 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		114E5948234927FE00A78EA6 /* unittest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = unittest; sourceTree = BUILT_PRODUCTS_DIR; };
-		114E59532349282000A78EA6 /* dns-format.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-format.c"; path = "../../../src/dns-format.c"; sourceTree = "<group>"; };
-		114E59542349282100A78EA6 /* dns-format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "dns-format.h"; path = "../../../src/dns-format.h"; sourceTree = "<group>"; };
-		114E59552349282100A78EA6 /* dns-parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-parse.c"; path = "../../../src/dns-parse.c"; sourceTree = "<group>"; };
-		114E59562349282100A78EA6 /* dns-parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "dns-parse.h"; path = "../../../src/dns-parse.h"; sourceTree = "<group>"; };
-		114E595A234929C300A78EA6 /* dns_parse.3.markdown */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = dns_parse.3.markdown; path = ../../../doc/dns_parse.3.markdown; sourceTree = "<group>"; };
-		114E595B234A81B600A78EA6 /* app-unittest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "app-unittest.c"; path = "../../../src/app-unittest.c"; sourceTree = "<group>"; };
+		1149BE45236CB60C00715876 /* util-timeouts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-timeouts.h"; path = "../../../src/util-timeouts.h"; sourceTree = "<group>"; };
+		1149BE46236CB60C00715876 /* util-timeouts.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-timeouts.c"; path = "../../../src/util-timeouts.c"; sourceTree = "<group>"; };
+		1149BE482377687900715876 /* util-dispatch-README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = "util-dispatch-README.md"; path = "../../../src/util-dispatch-README.md"; sourceTree = "<group>"; };
+		11A5A5BF23664228009FBE16 /* dns-format.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-format.c"; path = "../../../src/dns-format.c"; sourceTree = "<group>"; };
+		11A5A5C023664228009FBE16 /* dns-format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "dns-format.h"; path = "../../../src/dns-format.h"; sourceTree = "<group>"; };
+		11A5A5C223664242009FBE16 /* dns-parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-parse.c"; path = "../../../src/dns-parse.c"; sourceTree = "<group>"; };
+		11A5A5C323664242009FBE16 /* dns-parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "dns-parse.h"; path = "../../../src/dns-parse.h"; sourceTree = "<group>"; };
+		11C5F4FD23637F8D005525BC /* manydig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = manydig; sourceTree = BUILT_PRODUCTS_DIR; };
+		11C5F50723637FA8005525BC /* app-manydig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "app-manydig.c"; path = "../../../src/app-manydig.c"; sourceTree = "<group>"; };
+		11C5F5092363852D005525BC /* util-dispatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "util-dispatch.c"; path = "../../../src/util-dispatch.c"; sourceTree = "<group>"; };
+		11C5F50A2363852D005525BC /* util-dispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "util-dispatch.h"; path = "../../../src/util-dispatch.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		114E5945234927FE00A78EA6 /* Frameworks */ = {
+		11C5F4FA23637F8D005525BC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -45,70 +51,74 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		114E593F234927FE00A78EA6 = {
+		11C5F4F423637F8D005525BC = {
 			isa = PBXGroup;
 			children = (
-				114E594A234927FE00A78EA6 /* unittest */,
-				114E5949234927FE00A78EA6 /* Products */,
+				11C5F4FF23637F8D005525BC /* manydig */,
+				11C5F4FE23637F8D005525BC /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		114E5949234927FE00A78EA6 /* Products */ = {
+		11C5F4FE23637F8D005525BC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				114E5948234927FE00A78EA6 /* unittest */,
+				11C5F4FD23637F8D005525BC /* manydig */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		114E594A234927FE00A78EA6 /* unittest */ = {
+		11C5F4FF23637F8D005525BC /* manydig */ = {
 			isa = PBXGroup;
 			children = (
-				114E595B234A81B600A78EA6 /* app-unittest.c */,
-				114E595A234929C300A78EA6 /* dns_parse.3.markdown */,
-				114E59532349282000A78EA6 /* dns-format.c */,
-				114E59542349282100A78EA6 /* dns-format.h */,
-				114E59552349282100A78EA6 /* dns-parse.c */,
-				114E59562349282100A78EA6 /* dns-parse.h */,
+				1149BE482377687900715876 /* util-dispatch-README.md */,
+				11C5F50723637FA8005525BC /* app-manydig.c */,
+				1149BE46236CB60C00715876 /* util-timeouts.c */,
+				1149BE45236CB60C00715876 /* util-timeouts.h */,
+				11A5A5C223664242009FBE16 /* dns-parse.c */,
+				11A5A5C323664242009FBE16 /* dns-parse.h */,
+				11A5A5BF23664228009FBE16 /* dns-format.c */,
+				11A5A5C023664228009FBE16 /* dns-format.h */,
+				11C5F5092363852D005525BC /* util-dispatch.c */,
+				11C5F50A2363852D005525BC /* util-dispatch.h */,
 			);
-			path = unittest;
+			path = manydig;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		114E5947234927FE00A78EA6 /* unittest */ = {
+		11C5F4FC23637F8D005525BC /* manydig */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 114E594F234927FE00A78EA6 /* Build configuration list for PBXNativeTarget "unittest" */;
+			buildConfigurationList = 11C5F50423637F8D005525BC /* Build configuration list for PBXNativeTarget "manydig" */;
 			buildPhases = (
-				114E5944234927FE00A78EA6 /* Sources */,
-				114E5945234927FE00A78EA6 /* Frameworks */,
-				114E5946234927FE00A78EA6 /* CopyFiles */,
+				11C5F4F923637F8D005525BC /* Sources */,
+				11C5F4FA23637F8D005525BC /* Frameworks */,
+				11C5F4FB23637F8D005525BC /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = unittest;
-			productName = unittest;
-			productReference = 114E5948234927FE00A78EA6 /* unittest */;
+			name = manydig;
+			productName = manydig;
+			productReference = 11C5F4FD23637F8D005525BC /* manydig */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		114E5940234927FE00A78EA6 /* Project object */ = {
+		11C5F4F523637F8D005525BC /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 1110;
 				ORGANIZATIONNAME = "Robert David Graham";
 				TargetAttributes = {
-					114E5947234927FE00A78EA6 = {
+					11C5F4FC23637F8D005525BC = {
 						CreatedOnToolsVersion = 11.0;
 					};
 				};
 			};
-			buildConfigurationList = 114E5943234927FE00A78EA6 /* Build configuration list for PBXProject "unittest" */;
+			buildConfigurationList = 11C5F4F823637F8D005525BC /* Build configuration list for PBXProject "manydig" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -116,31 +126,33 @@
 				en,
 				Base,
 			);
-			mainGroup = 114E593F234927FE00A78EA6;
-			productRefGroup = 114E5949234927FE00A78EA6 /* Products */;
+			mainGroup = 11C5F4F423637F8D005525BC;
+			productRefGroup = 11C5F4FE23637F8D005525BC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				114E5947234927FE00A78EA6 /* unittest */,
+				11C5F4FC23637F8D005525BC /* manydig */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		114E5944234927FE00A78EA6 /* Sources */ = {
+		11C5F4F923637F8D005525BC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				114E595C234A81B600A78EA6 /* app-unittest.c in Sources */,
-				114E59582349282100A78EA6 /* dns-format.c in Sources */,
-				114E59592349282100A78EA6 /* dns-parse.c in Sources */,
+				11C5F50823637FA8005525BC /* app-manydig.c in Sources */,
+				11A5A5C423664243009FBE16 /* dns-parse.c in Sources */,
+				1149BE47236CB60C00715876 /* util-timeouts.c in Sources */,
+				11C5F50B2363852D005525BC /* util-dispatch.c in Sources */,
+				11A5A5C123664228009FBE16 /* dns-format.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		114E594D234927FE00A78EA6 /* Debug */ = {
+		11C5F50223637F8D005525BC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -198,7 +210,7 @@
 			};
 			name = Debug;
 		};
-		114E594E234927FE00A78EA6 /* Release */ = {
+		11C5F50323637F8D005525BC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -249,7 +261,7 @@
 			};
 			name = Release;
 		};
-		114E5950234927FE00A78EA6 /* Debug */ = {
+		11C5F50523637F8D005525BC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -258,7 +270,7 @@
 			};
 			name = Debug;
 		};
-		114E5951234927FE00A78EA6 /* Release */ = {
+		11C5F50623637F8D005525BC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -270,25 +282,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		114E5943234927FE00A78EA6 /* Build configuration list for PBXProject "unittest" */ = {
+		11C5F4F823637F8D005525BC /* Build configuration list for PBXProject "manydig" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				114E594D234927FE00A78EA6 /* Debug */,
-				114E594E234927FE00A78EA6 /* Release */,
+				11C5F50223637F8D005525BC /* Debug */,
+				11C5F50323637F8D005525BC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		114E594F234927FE00A78EA6 /* Build configuration list for PBXNativeTarget "unittest" */ = {
+		11C5F50423637F8D005525BC /* Build configuration list for PBXNativeTarget "manydig" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				114E5950234927FE00A78EA6 /* Debug */,
-				114E5951234927FE00A78EA6 /* Release */,
+				11C5F50523637F8D005525BC /* Debug */,
+				11C5F50623637F8D005525BC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 114E5940234927FE00A78EA6 /* Project object */;
+	rootObject = 11C5F4F523637F8D005525BC /* Project object */;
 }

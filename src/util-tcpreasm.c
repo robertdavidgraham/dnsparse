@@ -1,7 +1,7 @@
 #include "util-tcpreasm.h"
 #include "util-hashmap.h"
 #include "util-timeouts.h"
-#include "siphash24.h"
+#include "util-siphash24.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>

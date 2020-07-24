@@ -13,7 +13,7 @@
    with this software. If not, see
    <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
-#include "siphash24.h"
+#include "util-siphash24.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

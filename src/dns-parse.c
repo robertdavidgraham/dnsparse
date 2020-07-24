@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
 
 enum {DNS_query, DNS_answer, DNS_nameserver, DNS_additional};
 
@@ -792,30 +793,30 @@ static const struct dnstypes dnstypes[] = {
     {"MF", 4},
     {"CNAME", DNS_T_CNAME}, /* 5 */
     {"SOA", DNS_T_SOA}, /* 6 */
-    {"MB", 7},
+    {"MB", DNS_T_MB}, /* 7 */
     {"MG", 8},
     {"MR", 9},
     {"NULL", 10},
-    {"WKS", 11},
+    {"WKS", DNS_T_WKS}, /* 11 */
     {"PTR", DNS_T_PTR}, /* 12 */
     {"HINFO", DNS_T_HINFO}, /* 13 */
-    {"MINFO", 14},
+    {"MINFO", DNS_T_MINFO}, /* 14 */
     {"MX", DNS_T_MX}, /* 15 */
     {"TXT", DNS_T_TXT}, /* 16 */
     {"RP", DNS_T_RP}, /* 17 */
-    {"AFSDB", 18},
+    {"AFSDB", DNS_T_AFSDB}, /* 18 */
     {"X25", 19},
     {"ISDN", 20},
     {"RT", 21},
     {"NSAP", 22},
     {"NSAP-PTR", 23},
-    {"SIG", 24},
-    {"KEY", 25},
+    {"SIG", DNS_T_SIG}, /* 24 */
+    {"KEY", DNS_T_KEY}, /* 25 */
     {"PX", 26},
     {"GPOS", 27},
     {"AAAA", DNS_T_AAAA}, /* 28 */
-    {"LOC", 29},
-    {"NXT", 30},
+    {"LOC", DNS_T_LOC}, /* 29 */
+    {"NXT", DNS_T_NXT}, /* 30 */
     {"EID", 31},
     {"NIMLOC", 32},
     {"SRV", DNS_T_SRV}, /* 33 */
@@ -824,7 +825,7 @@ static const struct dnstypes dnstypes[] = {
     {"KX", 36},
     {"CERT", DNS_T_CERT}, /* 37 */
     {"A6", 38},
-    {"DNAME", 39},
+    {"DNAME", DNS_T_DNAME}, /* 39 */
     {"SINK", 40},
     {"OPT", DNS_T_OPT}, /* 41 */
     {"APL", 42},
@@ -869,7 +870,7 @@ static const struct dnstypes dnstypes[] = {
     {"MAILB", 253},
     {"MAILA", 254},
     {"ANY", 255},
-    {"URI", 256},
+    {"URI", DNS_T_URI}, /* 256 */
     {"CAA", 257},
     {"AVC", 258},
     {"DOA", 259},
@@ -1019,10 +1020,12 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             */
             _copy_domainname(&rdata, packet, &rr->ns.name, dns, 0);
             break;
+
         case DNS_T_CNAME: /* canonical name */
             _copy_domainname(&rdata, packet, &rr->cname.name, dns, 0);
             break;
-        case DNS_T_SOA: /* Start of zone Authority */
+            
+        case DNS_T_SOA: /* (6) Start of zone Authority */
             /* A typical SOA record, two DNS names (possibly compressed)
             * followed by five integers
             *   google.com    IN SOA ns1.google.com dns-admin.google.com 268869309 900 900 1800 60
@@ -1036,13 +1039,36 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_uint32(&rdata, &rr->soa.expire, is_copyable);
             _copy_uint32(&rdata, &rr->soa.minimum, is_copyable);
             break;
+
+        case DNS_T_MB: /* mailbox */
+            _copy_domainname(&rdata, packet, &rr->mb.name, dns, 0);
+            break;
+            
+        case DNS_T_MR: /* mail rename */
+            _copy_domainname(&rdata, packet, &rr->mr.name, dns, 0);
+            break;
+
+        case DNS_T_WKS: /* (11) well-known service */
+            _copy_uint32(&rdata, &rr->wks.address, is_copyable);
+            _copy_uint8(&rdata, &rr->wks.protocol, is_copyable);
+            len = rdata.length - rdata.offset; /* all remaining bytes in rdata field */
+            _copy_bytes(&rdata, &rr->wks.bitmap, &rr->wks.length, len, dns);
+            break;
+
         case DNS_T_PTR: /* pointer (reverse lookup) */
             _copy_domainname(&rdata, packet, &rr->ptr.name, dns, 0);
             break;
+
         case DNS_T_HINFO: /* host info */
             _next_charstring(&rdata, &rr->hinfo.cpu.buf, &rr->hinfo.cpu.length, dns);
             _next_charstring(&rdata, &rr->hinfo.os.buf, &rr->hinfo.os.length, dns);
             break;
+            
+        case DNS_T_MINFO: /* MINFO (14) - mailbox info - rfc1035 */
+            _copy_domainname(&rdata, packet, &rr->minfo.rmailbx, dns, 0);
+            _copy_domainname(&rdata, packet, &rr->minfo.emailbx, dns, 0);
+            break;
+
         case DNS_T_MX: /* mail exchnage*/
             /* a number (priority) followed by the DNS name of the server that handles
              * email for the domain
@@ -1054,6 +1080,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_uint16(&rdata, &rr->mx.priority, is_copyable);
             _copy_domainname(&rdata, packet, &rr->mx.name, dns, 0);
             break;
+            
         case DNS_T_SPF: /* SPF - same as text */
         case DNS_T_TXT: /* text records
             *  mozilla.org.        60    IN    TXT    "yandex-verification"
@@ -1113,8 +1140,100 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_domainname(&rdata, packet, &rr->rp.txt_dname, dns, 0);
             break;
 
+        case DNS_T_AFSDB: /* AFS */
+            _copy_uint16(&rdata, &rr->afsdb.subtype, is_copyable);
+            _copy_domainname(&rdata, packet, &rr->afsdb.name, dns, 0);
+            break;
+
+            
         case DNS_T_AAAA: /* IPv6 address */
             _next_memcpy(&rdata, rr->aaaa.ipv6, sizeof(rr->aaaa.ipv6), 16, is_copyable);
+            break;
+            
+        case DNS_T_KEY: /* KEY (25) */
+            _copy_uint16(&rdata, &rr->key.flags, is_copyable);
+            _copy_uint8(&rdata, &rr->key.protocol, is_copyable);
+            _copy_uint8(&rdata, &rr->key.algorithm, is_copyable);
+            len = rdata.length - rdata.offset; /* all remaining bytes in rdata field */
+            _copy_bytes(&rdata, &rr->key.public_key, &rr->key.length, len, dns);
+            break;
+            
+        case DNS_T_LOC: /* GPS Location */
+        {
+            unsigned char version;
+            unsigned char size;
+            unsigned char horiz_pre;
+            unsigned char vert_pre;
+            unsigned latitude;
+            unsigned longitude;
+            unsigned altitude;
+            
+            _copy_uint8(&rdata, &version, 1);
+            _copy_uint8(&rdata, &size, 1);
+            _copy_uint8(&rdata, &horiz_pre, 1);
+            _copy_uint8(&rdata, &vert_pre, 1);
+            _copy_uint32(&rdata, &latitude, 1);
+            _copy_uint32(&rdata, &longitude, 1);
+            _copy_uint32(&rdata, &altitude, 1);
+            
+            
+            if (is_copyable) {
+                rr->loc.version = 0xFF;
+            }
+            
+            if (version != 0)
+                return DNS_input_bad;
+            if (((size>>4) & 0xF) > 9 || (size & 0xF) > 9)
+                return DNS_input_bad;
+            if (((horiz_pre>>4) & 0xF) > 9 || (horiz_pre & 0xF) > 9)
+                return DNS_input_bad;
+            if (((vert_pre>>4) & 0xF) > 9 || (vert_pre & 0xF) > 9)
+                return DNS_input_bad;
+            
+            if (is_copyable) {
+                rr->loc.version = version;
+                rr->loc.size = (double)(size>>4) * pow(10.0, (size & 0xF)) / 100.0;
+                rr->loc.horiz_pre = (double)(horiz_pre>>4) * pow(10.0, (horiz_pre & 0xF)) / 100.0;
+                rr->loc.vert_pre = (double)(vert_pre>>4) * pow(10.0, (vert_pre & 0xF)) / 100.0;
+                
+                /* latitude */
+                if (latitude > (1U<<31U)) {
+                    rr->loc.latitude.is_north = 1;
+                    latitude -= (1<<31);
+                } else {
+                    rr->loc.latitude.is_north = 1;
+                    latitude = (1<<31) - latitude;
+                }
+                rr->loc.latitude.degrees = (latitude/(60*60*1000));
+                rr->loc.latitude.minutes = (latitude/(60*1000)) % 60;
+                rr->loc.latitude.seconds = (latitude/1000) % 60;
+                rr->loc.latitude.milliseconds = latitude % 1000;
+                
+                /* longitude */
+                if (longitude > (1U<<31U)) {
+                    rr->loc.longitude.is_east = 1;
+                    longitude -= (1<<31);
+                } else {
+                    rr->loc.longitude.is_east = 0;
+                    longitude = (1<<31) - longitude;
+                }
+                rr->loc.longitude.degrees = (longitude/(60*60*1000));
+                rr->loc.longitude.minutes = (longitude/(60*1000)) % 60;
+                rr->loc.longitude.seconds = (longitude/1000) % 60;
+                rr->loc.longitude.milliseconds = longitude % 1000;
+                
+                /* altitude */
+                rr->loc.altitude = (altitude - 10000000.0) / 100.0;
+            }
+
+        }
+            break;
+
+        case DNS_T_NXT: /* NXT (30) - rfc2065 */
+            _copy_domainname(&rdata, packet, &rr->nxt.name, dns, 0);
+            len = rdata.length - rdata.offset; /* all remaining bytes in rdata field */
+            _copy_bytes(&rdata, &rr->nxt.bitmap, &rr->nxt.length, len, dns);
+
             break;
 
         case DNS_T_SRV:
@@ -1131,6 +1250,10 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _next_charstring(&rdata, &rr->naptr.service.buf, &rr->naptr.service.length, dns);
             _next_charstring(&rdata, &rr->naptr.regexp.buf, &rr->naptr.regexp.length, dns);
             _copy_domainname(&rdata, packet, &rr->naptr.replacement, dns, 0);
+            break;
+        
+        case DNS_T_DNAME: /* DNAME (39) - canonical name for entire domain - rfc6672 */
+            _copy_domainname(&rdata, packet, &rr->dname.name, dns, 0);
             break;
             
         case DNS_T_DS: /* 43 */
@@ -1219,6 +1342,13 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             _copy_bytes(&rdata, &rr->nsec3param.salt, &rr->nsec3param.salt_length, len, dns);
             break;
 
+        case DNS_T_URI:
+            _copy_uint16(&rdata, &rr->uri.priority, is_copyable);
+            _copy_uint16(&rdata, &rr->uri.weight, is_copyable);
+            len = rdata.length - rdata.offset; /* all remaining bytes */
+            _copy_bytes(&rdata, &rr->uri.target, &rr->uri.length, len, dns);
+            break;
+
         case DNS_T_CAA: /* CAA - certficate authority */
             _copy_uint8(&rdata, &rr->caa.flags, is_copyable);
             
@@ -1230,6 +1360,7 @@ _parse_resource_record(struct dns_t **dns, size_t rindex, unsigned short rtype, 
             len = rdata.length - rdata.offset; /* all remaining bytes */
             _copy_bytes(&rdata, &rr->caa.value, &rr->caa.length, len, dns);
             break;
+
         default:
             len = rdata.length; /* all bytes in the resource-record */
             _copy_bytes(&rdata, &rr->unknown.buf, &rr->unknown.length, len, dns);

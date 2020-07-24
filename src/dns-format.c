@@ -8,8 +8,10 @@
  */
 #include "dns-format.h"
 #include "dns-parse.h"
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 /**
  * Holds the output string, so that we can append to it without
@@ -72,6 +74,8 @@ _append_decimal(stream_t *out, unsigned long long n)
     while (tmp_offset)
         _append_char(out, tmp[--tmp_offset]);
 }
+
+
 
 /**
  * Append a decimal integer, with leading zeroes as necessary to
@@ -251,6 +255,17 @@ _append_ipv6(stream_t *out, const unsigned char *ipv6)
     }
 }
 
+static void
+_append_float(stream_t *out, double n, size_t fractional)
+{
+    _append_decimal(out, (uint64_t)n);
+    n -= (uint64_t)n;
+    n *= pow(10.0, fractional);
+    if (fractional) {
+        _append_char(out, '.');
+        _append_decimal2(out, n, fractional);
+    }
+}
 /**
  * Like ctype's isprint(), but the charset is ASCII, because the external
  * network is defined to be ASCII, while the internal charset isn't always
@@ -349,11 +364,11 @@ _append_dnstring(
             _append_char(out, '\\');
             _append_char(out, c);
         } else if (!_isprint(c)) {
-            /* non-printable characters need to be printed as escaped octal */
+            /* non-printable characters need to be printed as decimal */
             _append_char(out, '\\');
-            _append_char(out, '0' + (c >> 6));
-            _append_char(out, '0' + ((c >> 3) & 0x7));
-            _append_char(out, '0' + (c & 0x7));
+            _append_char(out, '0' + (c / 100));
+            _append_char(out, '0' + ((c / 10) % 10));
+            _append_char(out, '0' + (c % 10));
         } else {
             _append_char(out, _print(c));
         }
@@ -425,7 +440,44 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_char(out, ' ');
         _append_decimal(out, rr->soa.minimum);
         break;
+
+    case DNS_T_MB: /* MB (7) - mailbox  */
+        _append_string(out, rr->mb.name);
+        break;
             
+    case DNS_T_MR: /* MR (9) - mail rename  */
+        _append_string(out, rr->mr.name);
+        break;
+            
+    case DNS_T_WKS: /* (11) well-known service */
+        {
+            unsigned ip = rr->wks.address;
+            size_t j;
+                
+            _append_decimal(out, (ip >> 24) & 0xFF);
+            _append_char(out, '.');
+            _append_decimal(out, (ip >> 16) & 0xFF);
+            _append_char(out, '.');
+            _append_decimal(out, (ip >> 8) & 0xFF);
+            _append_char(out, '.');
+            _append_decimal(out, (ip >> 0) & 0xFF);
+            _append_char(out, ' ');
+            
+            _append_decimal(out, rr->wks.protocol);
+            
+            for (j=0; j<rr->wks.length; j++) {
+                size_t k;
+                unsigned char c = rr->wks.bitmap[j];
+                for (k=0; k<8; k++) {
+                    if (((1<<(7-k)) & c) != 0) {
+                        _append_char(out, ' ');
+                        _append_decimal(out, j*8 + k);
+                    }
+                }
+            }
+        }
+        break;
+
     case DNS_T_PTR: /* PTR - pointer (reverse lookup) */
         _append_string(out, rr->ptr.name);
         break;
@@ -434,6 +486,13 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_dnstring(rr->hinfo.cpu.buf, rr->hinfo.cpu.length, out, 0);
         _append_char(out, ' ');
         _append_dnstring(rr->hinfo.os.buf, rr->hinfo.os.length, out, 0);
+        break;
+
+    /* MINFO (14) - mailbox info - rfc883,rfc1035 */
+    case DNS_T_MINFO:
+        _append_string(out, rr->minfo.rmailbx);
+        _append_char(out, ' ');
+        _append_string(out, rr->minfo.emailbx);
         break;
 
     case DNS_T_MX: /* MX - mail exhchange*/
@@ -462,11 +521,82 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_char(out, ' ');
         _append_string(out, rr->rp.txt_dname);
         break;
+            
+    case DNS_T_AFSDB:
+        _append_decimal(out, rr->afsdb.subtype);
+        _append_char(out, ' ');
+        _append_string(out, rr->afsdb.name);
+        break;
 
     case DNS_T_AAAA: /* AAAA - an IPv6 address */
         _append_ipv6(out, rr->aaaa.ipv6);
         break;
+            
+    case DNS_T_KEY: /* KEY (25) */
+        _append_decimal(out, rr->key.flags);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->key.protocol);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->key.algorithm);
+        _append_char(out, ' ');
+        _append_base64(out, rr->key.public_key, rr->key.length);
+        break;
 
+    case DNS_T_LOC: /* GPS Location*/
+        _append_decimal(out, rr->loc.latitude.degrees);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->loc.latitude.minutes);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->loc.latitude.seconds);
+        _append_char(out, '.');
+        _append_decimal2(out, rr->loc.latitude.milliseconds, 3);
+        _append_char(out, ' ');
+        _append_char(out, rr->loc.latitude.is_north?'N':'S');
+        _append_char(out, ' ');
+        
+        _append_decimal(out, rr->loc.longitude.degrees);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->loc.longitude.minutes);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->loc.longitude.seconds);
+        _append_char(out, '.');
+        _append_decimal2(out, rr->loc.longitude.milliseconds, 3);
+        _append_char(out, ' ');
+        _append_char(out, rr->loc.longitude.is_east?'E':'W');
+        _append_char(out, ' ');
+        
+        _append_float(out, rr->loc.altitude, 2);
+        _append_char(out, 'm');
+        _append_char(out, ' ');
+        
+        _append_float(out, rr->loc.size, 0);
+        _append_char(out, 'm');
+        _append_char(out, ' ');
+        _append_float(out, rr->loc.horiz_pre, 0);
+        _append_char(out, 'm');
+        _append_char(out, ' ');
+        _append_float(out, rr->loc.vert_pre, 0);
+        _append_char(out, 'm');
+        break;
+            
+    case DNS_T_NXT:
+        _append_string(out, rr->nxt.name);
+        _append_char(out, ' ');
+        {
+            size_t j;
+            for (j=0; j<rr->nxt.length; j++) {
+                size_t k;
+                unsigned char c = rr->nxt.bitmap[j];
+                for (k=0; k<8; k++) {
+                    if (((1<<(7-k)) & c) != 0) {
+                        _append_char(out, ' ');
+                        _append_string(out, dns_name_from_rrtype((unsigned)(j*8 + k)));
+                    }
+                }
+            }
+        }
+        break;
+            
     case DNS_T_SRV:
         _append_decimal(out, rr->srv.priority);
         _append_char(out, ' ');
@@ -489,6 +619,10 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         _append_dnstring(rr->naptr.regexp.buf, rr->naptr.regexp.length, out, 1);
         _append_char(out, ' ');
         _append_string(out, rr->naptr.replacement);
+        break;
+            
+    case DNS_T_DNAME: /* DNAME (39) - canonical name for entire domain - rfc6672 */
+        _append_string(out, rr->dname.name);
         break;
             
     case DNS_T_DS:
@@ -586,7 +720,15 @@ dns_format_rdata(const struct dnsrrdata_t *rr, char *dst, size_t dst_length)
         }
         break;
 
-    case DNS_T_CAA: /* certficate authority */
+    case DNS_T_URI: /* URI (256) */
+        _append_decimal(out, rr->uri.priority);
+        _append_char(out, ' ');
+        _append_decimal(out, rr->uri.weight);
+        _append_char(out, ' ');
+        _append_dnstring(rr->uri.target, rr->uri.length, out, 1);
+        break;
+
+    case DNS_T_CAA: /* CAA (257) - certficate authority */
         _append_decimal(out, rr->caa.flags);
         _append_char(out, ' ');
 

@@ -10,7 +10,7 @@
   whether the checksum is correct).
 
  ****************************************************************************/
-#include "util-packet.h"
+#include "util-ipdecode.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -50,7 +50,7 @@ enum {SUCCESS=0, FAILURE=-1};
 /****************************************************************************
  ****************************************************************************/
 int
-packet_decode(const unsigned char *px, size_t in_length, int link_type,
+util_ipdecode(const unsigned char *px, size_t in_length, int link_type,
                  struct packetdecode_t *info)
 {
     unsigned length = (unsigned)in_length;

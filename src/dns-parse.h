@@ -56,17 +56,25 @@ enum {
     DNS_T_NS        = 2,
     DNS_T_CNAME     = 5,
     DNS_T_SOA       = 6,
+    DNS_T_MB        = 7,
+    DNS_T_MR        = 9,
+    DNS_T_WKS       = 11,
     DNS_T_PTR       = 12,
     DNS_T_HINFO     = 13,
+    DNS_T_MINFO     = 14,
     DNS_T_MX        = 15,
     DNS_T_TXT       = 16,
     DNS_T_RP        = 17,
-    //DNS_T_SIG       = 24,
-    //DNS_T_KEY       = 25,
+    DNS_T_AFSDB     = 18,
+    DNS_T_SIG       = 24,
+    DNS_T_KEY       = 25,
     DNS_T_AAAA      = 28,
+    DNS_T_LOC       = 29, /* GPS Location rfc1876 */
+    DNS_T_NXT       = 30,
     DNS_T_SRV       = 33,
     DNS_T_NAPTR     = 35,
     DNS_T_CERT      = 37,
+    DNS_T_DNAME     = 39,
     DNS_T_OPT       = 41,
     DNS_T_DS        = 43,
     DNS_T_SSHFP     = 44,
@@ -81,6 +89,7 @@ enum {
     DNS_T_SPF       = 99,
     //DNS_T_AXFR      = 252,
     //DNS_T_ANY       = 255,
+    DNS_T_URI       = 256,
     DNS_T_CAA       = 257,
 };
 
@@ -270,8 +279,26 @@ typedef struct dnsrrdata_t
             unsigned expire;
             unsigned minimum;
         } soa;
-            
-        /* PTR (12) - poitner (reverse) */
+
+        /* MB (7) - mailbox */
+        struct {
+            const unsigned char *name;
+        } mb;
+
+        /* MR (9) - mail rename */
+        struct {
+            const unsigned char *name;
+        } mr;
+
+        /* WKS (11) - well-known service - rfc1035 */
+        struct {
+            unsigned address;
+            unsigned char protocol;
+            const unsigned char *bitmap;
+            size_t length;
+        } wks;
+        
+        /* PTR (12) - pointer (reverse) */
         struct {
             const unsigned char *name;
         } ptr;
@@ -282,6 +309,12 @@ typedef struct dnsrrdata_t
             struct dnsrrbuf_t os;
         } hinfo;
 
+        /* MINFO (14) - mailbox info - rfc883,rfc1035 */
+        struct {
+            const unsigned char *rmailbx;
+            const unsigned char *emailbx;
+        } minfo;
+    
         /* MX (15) - Mail Exchange - rfc974,rfc1035,rfc7505,rfc5321#section-5,rfc2181#section-10.3 */
         struct {
             const unsigned char *name;
@@ -299,12 +332,56 @@ typedef struct dnsrrdata_t
             const unsigned char *mbox_dname;
             const unsigned char *txt_dname;
         } rp;
+
+        struct {
+            unsigned short subtype;
+            const unsigned char *name;
+        } afsdb;
+        
+        /* KEY (25) */
+        struct {
+            unsigned short flags;
+            unsigned char protocol;
+            unsigned char algorithm;
+            const unsigned char *public_key;
+            size_t length;
+        } key;
         
         /* AAAA (28) - IPv6 - rfc3596 */
         struct {
             unsigned char ipv6[16];
         } aaaa;
         
+        /* LOC (29) - GPS location - rfc1876 */
+        struct {
+            unsigned char version;
+            double size;
+            double horiz_pre;
+            double vert_pre;
+            struct {
+                unsigned char is_north; /* north, or south */
+                unsigned char degrees;
+                unsigned char minutes;
+                unsigned char seconds;
+                unsigned short milliseconds;
+            } latitude;
+            struct {
+                unsigned char is_east; /* east, or west */
+                unsigned char degrees;
+                unsigned char minutes;
+                unsigned char seconds;
+                unsigned short milliseconds;
+            } longitude;
+            double altitude;
+        } loc;
+        
+        /* NXT (30) */
+        struct {
+            const unsigned char *name;
+            const unsigned char *bitmap;
+            size_t length;
+        } nxt;
+
         /* SRV (33) - service */
         struct {
             unsigned short priority;
@@ -323,6 +400,11 @@ typedef struct dnsrrdata_t
             const unsigned char *replacement;
         } naptr;
         
+        /* DNAME (39) - canonical name for entire domain - rfc6672 */
+        struct {
+            const unsigned char *name;
+        } dname;
+
         /* DS (43) */
         struct {
             unsigned short key_tag;
@@ -379,6 +461,14 @@ typedef struct dnsrrdata_t
             const unsigned char *salt;
         } nsec3param;
             
+        /* URI (256) */
+        struct {
+            unsigned short priority;
+            unsigned short weight;
+            const unsigned char *target;
+            size_t length;
+        } uri;
+        
         /* CAA (257) - Certification Authority Authorization - rfc6844 */
         struct {
             unsigned char flags;

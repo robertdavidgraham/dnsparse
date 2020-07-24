@@ -1,7 +1,6 @@
 /*
-    Demonstrates using the 'resolv' library to do DNS lookups for records
-    other than IP addresses. This is commonly used to lookup MX and SPF
-    records for emails, for example.
+    Demonstrates using the <resolv.h> library to do DNS lookups.
+    This replicates the look and feel of the classic `dig` program.
 */
 #include "dns-parse.h"
 #include "dns-format.h"
@@ -12,7 +11,7 @@
 #include <resolv.h>
 #include <netdb.h>
 
-struct dig_options {
+struct configuration {
     unsigned rtype;
     char *filename;
     unsigned is_short:1;
@@ -87,6 +86,7 @@ _print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds, siz
            _opcode_name(dns->flags.opcode),
            _rcode_name(dns->flags.rcode),
            dns->flags.xid);
+
     /*
      15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -190,18 +190,22 @@ _print_long_results(const struct dns_t *dns, unsigned ellapsed_milliseconds, siz
 
 
 /**
- * Add a hostname to the list that we'll be looking up.
+ * Add a hostname to the list that we'll be looking up. The 
+ * memory allocated here should be freed with _hostnames_free().
  */
 static void
-_hostname_add(struct dig_options *options, const char *hostname)
+_hostname_add(struct configuration *options, const char *hostname)
 {
     options->hostnames = realloc(options->hostnames, sizeof(hostname) * (options->hostname_count + 1));
     options->hostnames[options->hostname_count] = strdup(hostname);
     options->hostname_count++;
 }
 
+/**
+ * Cleanup memory that was allocated by the _hostname_add() function.
+ */
 static void
-_hostnames_free(struct dig_options *options)
+_hostnames_free(struct configuration *options)
 {
     size_t i;
     for (i=0; i<options->hostname_count; i++)
@@ -218,10 +222,10 @@ _hostnames_free(struct dig_options *options)
  *      with the name of the program.
  * @return a structure containing parsed arguments
  */
-static struct dig_options
+static struct configuration
 _parse_commandline(int argc, char *argv[])
 {
-    struct dig_options options = {0};
+    struct configuration options = {0};
     int i;
     for (i=1; i<argc; i++) {
         if (argv[i][0] == '-') {
@@ -241,15 +245,21 @@ _parse_commandline(int argc, char *argv[])
     return options;
 }
 
+/**
+ * Called from `main()` to do the actual lookup of the `hostname`
+ * with the provided configuration `options`. This is where all
+ * the magic happens.
+ */
 static void
-_do_lookup(const struct dig_options *options, const char *hostname)
+_do_lookup(const struct configuration *options, const char *hostname)
 {
     unsigned char buf[65536];
     int result;
     struct dns_t *dns;
     int rtype;
     
-    /* If no rtype specified, default to 1 for "A" records */
+    /* If no rtype specified, default to 1 for "A" records, meaning
+     * IPv4 addresses like '192.168.1.103' */
     if (options->rtype)
         rtype = options->rtype;
     else
@@ -264,7 +274,7 @@ _do_lookup(const struct dig_options *options, const char *hostname)
         return;
     }
 
-    /* Parse the DNS response */
+    /* Parse the DNS response, using our 'dns-parse.c' library */
     dns = dns_parse(buf, result, 0, 0);
     if (dns == NULL || dns->error_code != 0) {
         printf(";; failed to parse result\n");
@@ -272,16 +282,16 @@ _do_lookup(const struct dig_options *options, const char *hostname)
         return;
     }
 
-
     /* Now decode the result */
     _print_long_results(dns, 60, result);
 
+    /* Cleanup any memory that we allocated */
     dns_parse_free(dns);
 }
 
 int main(int argc, char *argv[])
 {
-    struct dig_options options;
+    struct configuration options;
     size_t i;
 
     /* Initialize the built-in DNS resolver library */
@@ -302,7 +312,8 @@ int main(int argc, char *argv[])
         printf(";; global options: +cmd\n");
     }
     
-    /* Do all the hostnames */
+    /* Do all the hostnames. Normally we lookup only a single hostname, but
+     * in theory, we can lookup multiple. */
     for (i=0; i<options.hostname_count; i++) {
         _do_lookup(&options, options.hostnames[i]);
     }

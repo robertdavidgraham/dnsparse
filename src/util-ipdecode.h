@@ -49,9 +49,13 @@ struct packetdecode_t {
 };
 
 /**
+ * Decodes a TCP/IP packet into an internal data structure.
+ * This structure will find the IPv4/IPv6 headers, the
+ * transport headers like TCP and UDP, and where the application
+ * layer payload starts in packet.
  * @return 0 on success, any other value on failure
  */
 int
-packet_decode(const unsigned char *px, size_t length, int link_type, struct packetdecode_t *info);
+util_ipdecode(const unsigned char *px, size_t length, int link_type, struct packetdecode_t *info);
 
 #endif

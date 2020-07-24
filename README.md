@@ -1,15 +1,22 @@
-# dnsparse
+# dnsparse -- parses DNS responses
 
-This project contains a module (`dns-parse.c`) that can be included in projects
-in order to parse DNS responses, such as when using `res_search()` or `res_query()`
-using the common `<resolv.h>` library. Beacuse it's a single file, it can be 
-just copied into existing projects.
+The standard Sockets API for doing DNS lookups is `getaddrinfo()` (or the 
+older `gethostbyname()`). However, this provides only basic lookups, and 
+is insufficient for complex tasks, such as looking up MX records.
 
-However, the purpose of this project is really to demonstrate Internet security.
-Things that parse network input should be done in a formal rather than ad hoc manner.
-In C, care should be taken to make sure buffers are copied in a memory-safe manner,
-rather than using ad hoc code to prevent buffer-overflows. Besides memory-safety,
-parsers need stricter validation of input.
+For more complex lookups is the `<resolv.h>` API, with the functions 
+`res_search()` or `res_query()`. This can be considered an extension of 
+the Sockets/Winsock API.
 
-In addition to the parsing issue this project explores code hardening, such as
-static-analysis, build-flags to enable ASLR, and so on.
+However, while these functions take care of sending/receiving DNS packets,
+they still leave the parsing of DNS records up to the programmer.
+
+This module parses those DNS responses. The programmer simply includes
+the module `dns-parse.c` in their project, and include the `dns-parse.h`
+in their source.
+
+The `src` directory contains many other files. These are for:
+    * example usage of the `dns-parse.c`
+    * unit/regression tests
+    * useful utilities
+

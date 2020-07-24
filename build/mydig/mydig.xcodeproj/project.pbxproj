@@ -112,7 +112,7 @@
 		112F7ADE234D1BB700BE8B26 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1100;
+				LastUpgradeCheck = 1110;
 				ORGANIZATIONNAME = "Robert David Graham";
 				TargetAttributes = {
 					112F7AE5234D1BB700BE8B26 = {
@@ -264,6 +264,7 @@
 		112F7AEE234D1BB700BE8B26 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -272,6 +273,7 @@
 		112F7AEF234D1BB700BE8B26 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
